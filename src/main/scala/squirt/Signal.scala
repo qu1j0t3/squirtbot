@@ -32,4 +32,5 @@ class Signal {
       while(!flag) wait
     }
   }
+  def signaled = flag
 }
