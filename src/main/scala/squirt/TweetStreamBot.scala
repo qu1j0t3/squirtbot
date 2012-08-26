@@ -21,11 +21,27 @@ package main.scala.squirt
 
 import concurrent.ops._
 import io.Source
+import annotation.tailrec
 
 class TweetStreamBot(server:String, port:Int, chan:String, nick:String)
         extends Bot(server, port, chan, nick)
 {
+  /*
+  final class Line(src:Source) {
+    val sb = new StringBuilder(512)
+    @tailrec def parse(c1:Char):String =
+      if(c1 == '\r') {
+        val c2 = src.next
+        if(c2 == '\n') sb.mkString else parse(c2)
+      } else {
+        sb.append(c1)
+        parse(src.next)
+      }
+    def next = parse(src.next)
+  }
+  */
   override def onConnect {
+    import util.parsing.json._  // TODO: Find better library. This is rather broken.
     import jm.oauth._
 
     val userStreamUrl       = "https://userstream.twitter.com/2/user.json"
@@ -47,11 +63,25 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String)
     spawn {
       try {
         val iter = source.getLines
-        while(!Quit.signaled && iter.hasNext)
-          sendMessage(chan, iter.next())
+        while(!Quit.signaled && iter.hasNext) {
+          val line = iter.next
+          println(line)
+          JSON.parseRaw(line) match { // Nasty, because of the poor typing in util.parsing.json
+            case Some(JSONObject(m)) =>
+              (m.get("text"), m.get("id_str"), m.get("user")) match {
+                case (Some(t), Some(id), Some(JSONObject(u))) =>
+                  for(handle <- u.get("screen_name"))
+                    sendMessage(chan, "@"+handle+": "+t+
+                                      " | https://twitter.com/"+handle+"/status/"+id)
+                case _ => println("JSON object did not have 'text' and 'user' members")
+              }
+            case _ => println("not a JSON object: ignoring line")
+          }
+        }
       } catch {
-        case e => sendAction(chan, e.getMessage)
+        case e => sendAction(chan, e.getMessage); e.printStackTrace
       }
+      Quit.signal
     }
   }
 
