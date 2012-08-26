@@ -1,0 +1,3 @@
+[submodule "ext/Scala-OAuth"]
+	path = ext/Scala-OAuth
+	url = git@github.com:qu1j0t3/Scala-OAuth.git
