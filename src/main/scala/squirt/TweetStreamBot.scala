@@ -26,20 +26,6 @@ import annotation.tailrec
 class TweetStreamBot(server:String, port:Int, chan:String, nick:String)
         extends Bot(server, port, chan, nick)
 {
-  /*
-  final class Line(src:Source) {
-    val sb = new StringBuilder(512)
-    @tailrec def parse(c1:Char):String =
-      if(c1 == '\r') {
-        val c2 = src.next
-        if(c2 == '\n') sb.mkString else parse(c2)
-      } else {
-        sb.append(c1)
-        parse(src.next)
-      }
-    def next = parse(src.next)
-  }
-  */
   override def onConnect {
     import util.parsing.json._  // TODO: Find better library. This is rather broken.
     import jm.oauth._
@@ -75,7 +61,7 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String)
                                       " | https://twitter.com/"+handle+"/status/"+id)
                 case _ => println("JSON object did not have 'text' and 'user' members")
               }
-            case _ => println("not a JSON object: ignoring line")
+            case _ => println("not a JSON object: ignoring \""+line+"\"")
           }
         }
       } catch {
