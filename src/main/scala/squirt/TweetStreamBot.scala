@@ -46,6 +46,10 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String)
                             oauthToken, oauthTokenSecret, OAuth.VERSION_1)
     val stream = req.getResponse(userStreamUrl, Map()).getEntity.getContent
     val source = Source.fromInputStream(stream, "UTF-8")
+
+    val wrapCol = 60
+    val indent = " " * 16
+
     spawn {
       try {
         val iter = source.getLines
