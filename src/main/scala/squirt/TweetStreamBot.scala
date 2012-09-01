@@ -48,7 +48,7 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String)
     val source = Source.fromInputStream(stream, "UTF-8")
 
     val wrapCol = 60
-    val indent = " " * 16
+    def sendIndented(line:String) { sendMessage(chan, " "*16 + line) }
 
     spawn {
       try {
@@ -66,35 +66,25 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String)
                                       shortenUrl(tweetUrl).map{ " | " + _ }.getOrElse(""))
                     */
                     t.split(' ').foldLeft((0,Nil:List[List[String]],Nil:List[String])) {
-                      (s,v) =>
-                        val (col,linesAcc,lineAcc) = s
-                        val newCol = col + 1 + v.size
-                        if(newCol < wrapCol) {  // fits
-                          (newCol, linesAcc, v :: lineAcc)
-                        } else {  // too long, wrap over
-                          (0, lineAcc :: linesAcc, List(v))
+                      (state, word) =>
+                        val (col,linesAcc,lineAcc) = state
+                        val newCol = col + 1 + word.size
+                        if(col == 0) {  // always take first word
+                          (word.size, linesAcc, word :: lineAcc)
+                        } else if (newCol <= wrapCol) {  // word fits on line
+                          (newCol,    linesAcc, word :: lineAcc)
+                        } else {  // too long, wrap word to next line
+                          (0, lineAcc :: linesAcc, List(word))
                         }
                     } match {
                       case (_,lines,lastLine) =>
-                        def sendIndented(line:String) { sendMessage(chan, indent + line) }
-                        def sendLines(revLines:List[List[String]]) {
-                          val allLines = revLines.reverse.map { _.reverse.mkString(" ") }
-                          sendMessage(chan, "@%-13s: %s".format(handle, allLines.head))
-                          allLines.tail.foreach(sendIndented)
-                        }
-                        val allLines = (lastLine :: lines)
-                        lastLine match {
-                          //case Nil => sendLines( lines )
-                          case loneWord :: Nil if !lines.isEmpty =>  // wrap single word back to previous line
-                            sendLines( (loneWord :: lines.head) :: lines.tail )
-                          case _ =>   sendLines( lastLine :: lines )
-                        }
-                        shortenUrl(tweetUrl).foreach {
-                          line => sendIndented("."*30 + "  " + line)
-                        }
+                        val allLines = (lastLine :: lines).reverse.map { _.reverse.mkString(" ") }
+                        sendMessage(chan, "@%-13s: %s".format(handle, allLines.head))
+                        allLines.tail.foreach(sendIndented)
+                        sendMessage(chan, "."*30 + "  " + shortenUrl(tweetUrl).getOrElse(tweetUrl))
                     }
                   }
-                case _ => println("JSON object did not have 'text' and 'user' members: "+line)
+                case _ => println("Not tweet: "+line)
               }
             case _ => println("*** "+line)
           }

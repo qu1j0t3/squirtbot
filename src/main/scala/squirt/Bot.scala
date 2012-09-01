@@ -31,6 +31,7 @@ class Bot(server:String, port:Int, val chan:String, nick:String) extends PircBot
 
   def run {
     //setVerbose(true)
+    setEncoding("UTF-8")
     setName(nick)
     connect(server, port)
     joinChannel(chan)
@@ -41,8 +42,7 @@ class Bot(server:String, port:Int, val chan:String, nick:String) extends PircBot
     dispose
   }
 
-  override def onMessage(channel:String, sender:String, login:String,
-                         hostname:String, message:String) {
+  def checkCommand(message:String) {
     val Command = """^([-\w]+)\W*\s*(.*)$""".r
 
     message match {
@@ -51,6 +51,15 @@ class Bot(server:String, port:Int, val chan:String, nick:String) extends PircBot
       case _ => ()
     }
   }
+
+  override def onMessage(channel:String, sender:String, login:String,
+                         hostname:String, message:String) {
+    checkCommand(message)
+  }
+  /*override def onPrivateMessage(sender:String, login:String,
+                                hostname:String, message:String) {
+    checkCommand(message)
+  }*/
 
   protected val client = new DefaultHttpClient  // TODO: set long keepalive (1 minute?)
   
