@@ -9,6 +9,7 @@ class Project(info: ProjectInfo) extends DefaultProject(info) {
   //val jodatime = "joda-time" % "joda-time" % "1.6"
   override def libraryDependencies = Set(
     // jm.oauth depends on this:
-    "org.apache.httpcomponents" % "httpclient" % "4.2.1"
+    "org.apache.httpcomponents" % "httpclient" % "4.2.1",
+    "org.apache.httpcomponents" % "fluent-hc"  % "4.2.1"
   ) ++ super.libraryDependencies
 }

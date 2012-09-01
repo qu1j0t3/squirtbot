@@ -51,17 +51,48 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String)
         val iter = source.getLines
         while(!Quit.signaled && iter.hasNext) {
           val line = iter.next
-          println(line)
           JSON.parseRaw(line) match { // Nasty, because of the poor typing in util.parsing.json
             case Some(JSONObject(m)) =>
               (m.get("text"), m.get("id_str"), m.get("user")) match {
-                case (Some(t), Some(id), Some(JSONObject(u))) =>
-                  for(handle <- u.get("screen_name"))
+                case (Some(t:String), Some(id:String), Some(JSONObject(u))) =>
+                  for(handle <- u.get("screen_name")) {
+                    val tweetUrl = "http://twitter.com/"+handle+"/status/"+id
+                    /* un-word-wrapped:
                     sendMessage(chan, "@"+handle+": "+t+
-                                      " | https://twitter.com/"+handle+"/status/"+id)
-                case _ => println("JSON object did not have 'text' and 'user' members")
+                                      shortenUrl(tweetUrl).map{ " | " + _ }.getOrElse(""))
+                    */
+                    t.split(' ').foldLeft((0,Nil:List[List[String]],Nil:List[String])) {
+                      (s,v) =>
+                        val (col,linesAcc,lineAcc) = s
+                        val newCol = col + 1 + v.size
+                        if(newCol < wrapCol) {  // fits
+                          (newCol, linesAcc, v :: lineAcc)
+                        } else {  // too long, wrap over
+                          (0, lineAcc :: linesAcc, List(v))
+                        }
+                    } match {
+                      case (_,lines,lastLine) =>
+                        def sendIndented(line:String) { sendMessage(chan, indent + line) }
+                        def sendLines(revLines:List[List[String]]) {
+                          val allLines = revLines.reverse.map { _.reverse.mkString(" ") }
+                          sendMessage(chan, "@%-13s: %s".format(handle, allLines.head))
+                          allLines.tail.foreach(sendIndented)
+                        }
+                        val allLines = (lastLine :: lines)
+                        lastLine match {
+                          //case Nil => sendLines( lines )
+                          case loneWord :: Nil if !lines.isEmpty =>  // wrap single word back to previous line
+                            sendLines( (loneWord :: lines.head) :: lines.tail )
+                          case _ =>   sendLines( lastLine :: lines )
+                        }
+                        shortenUrl(tweetUrl).foreach {
+                          line => sendIndented("."*30 + "  " + line)
+                        }
+                    }
+                  }
+                case _ => println("JSON object did not have 'text' and 'user' members: "+line)
               }
-            case _ => println("not a JSON object: ignoring \""+line+"\"")
+            case _ => println("*** "+line)
           }
         }
       } catch {
