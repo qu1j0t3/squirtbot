@@ -39,7 +39,10 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
     val stream = req.getResponse(userStreamUrl, Map()).getEntity.getContent
     val source = Source.fromInputStream(stream, "UTF-8")
 
-    def sendIndented(line:String) { sendMessage(chan, " "*16 + line) }
+    def colourNick(s:String) = Colors.BOLD + "@" + s + Colors.NORMAL
+
+    val indentCols = 20
+    val wrapCols = 60
 
     def wordWrap(text:String, wrapCol:Int):List[String] = {
       val (_,lines,lastLine) =
@@ -50,35 +53,36 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
             } else {
               val (col,linesAcc,lineAcc) = state
               val newCol = col + 1 + word.size
-              val colorWord = word(0) match {
+              val colourWord = word(0) match {
                 case '@' => Colors.MAGENTA + word + Colors.NORMAL
                 case '#' => Colors.CYAN    + word + Colors.NORMAL
                 case _   => word
               }
               if(col == 0) {  // always take first word
-                (word.size, linesAcc, colorWord :: lineAcc)
+                (word.size, linesAcc, colourWord :: lineAcc)
               } else if (newCol <= wrapCol) {  // word fits on line
-                (newCol, linesAcc, colorWord :: lineAcc)
+                (newCol, linesAcc, colourWord :: lineAcc)
               } else {  // too long, wrap word to next line
-                (0, lineAcc :: linesAcc, List(colorWord))
+                (0, lineAcc :: linesAcc, List(colourWord))
               }
             }
         }
       (lastLine :: lines).reverse.map { _.reverse.mkString(" ") }
     }
 
-    val userMap = new HashMap[String,String]
-
     spawn {
       try {
         val iter = source.getLines
         while(!Quit.signaled && iter.hasNext) {
           val line = iter.next
+          //println(line)
           JSON.parseRaw(line) match { // Nasty, because of the poor typing in util.parsing.json
             case Some(JSONObject(m)) =>
               if(m.isDefinedAt("text")) {
-                (m.get("text"), m.get("id_str"), m.get("user")) match {
-                  case (Some(t:String), Some(statusId:String), Some(JSONObject(u))) =>
+                (m.get("id_str"), m.get("user"), m.get("retweeted_status")) match {
+                  case (Some(statusId:String),
+                        Some(JSONObject(u)),
+                        rt:Option[JSONObject]) =>
                     (u.get("screen_name"), u.get("id_str")) match {
                       case (Some(screenName:String), Some(userId:String)) => {
                         val tweetUrl = "http://twitter.com/"+screenName+"/status/"+statusId
@@ -86,29 +90,35 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
                         sendMessage(chan, "@"+screenName+": "+t+
                                           shortenUrl(tweetUrl).map{ " | " + _ }.getOrElse(""))
                         */
-                        val lines = wordWrap(t, 60)
-                        sendMessage(chan, "%s@%-14s%s %s".format(
-                            Colors.BOLD, screenName, Colors.NORMAL, lines.head))
-                        lines.tail.foreach(sendIndented)
+                        val (lhs:List[String],text:String) = rt match {
+                          case Some(rtStatus) => // It is a re-tweet
+                            (rtStatus.obj.get("text"), rtStatus.obj.get("user")) match {
+                              case (Some(t:String), Some(JSONObject(u))) =>
+                                u.get("screen_name") match {
+                                  case Some(origScreenName:String) =>
+                                    (List("@"+origScreenName, " retweeted by", " @"+screenName), t)
+                                }
+                            }
+                          case None => // Not a re-tweet. TODO: Replies
+                            m.get("text") match {
+                              case Some(t:String) => (List("@"+screenName), t)
+                            }
+                        }
+                        val wrapped = text.split('\n').flatMap { wordWrap(_, wrapCols) }
+                        lhs.zipAll(wrapped, "", "").zipWithIndex.foreach {
+                          case ((a,b),i) =>
+                            sendMessage(chan, (if(i == 0) Colors.BOLD else Colors.DARK_BLUE) +
+                                              a + Colors.NORMAL +
+                                              " "*(2 max (indentCols - a.size)) + b)
+                        }
                         sendMessage(chan, Colors.DARK_GREEN + "."*40 + "  " +
                                           shortenUrl(tweetUrl).getOrElse(tweetUrl) +
                                           Colors.NORMAL)
-                        userMap += (userId -> screenName)
                       }
                     }
                   case _ => println("Can't match tweet: "+line)
                 }
-              } /*else if(m.isDefinedAt("delete")) {
-                m.get("delete") match {
-                  case Some(JSONObject(d)) =>
-                    d.get("status") match {
-                      case Some(JSONObject(status)) =>
-                        for(userId <- status.get("user_id_str");
-                            statusId <- status.get("id_str"))
-                          sendAction(chan, "user %s deleted status %s".format(userId, statusId))
-                    }
-                }
-              }*/
+              }
             case _ => println("*** "+line)
           }
         }
