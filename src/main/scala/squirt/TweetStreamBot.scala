@@ -21,7 +21,8 @@ package main.scala.squirt
 
 import concurrent.ops._
 import io.Source
-import annotation.tailrec
+import collection.mutable.HashMap
+import org.jibble.pircbot.Colors
 
 class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
                      oauth:OAuthCredentials)
@@ -31,7 +32,7 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
     import util.parsing.json._  // TODO: Find better library. This is rather broken.
     import jm.oauth._
 
-    val userStreamUrl       = "https://userstream.twitter.com/2/user.json"
+    val userStreamUrl = "https://userstream.twitter.com/2/user.json"
 
     val req = new Requester(OAuth.HMAC_SHA1, oauth.consumerSecret, oauth.consumerKey,
                             oauth.token, oauth.tokenSecret, OAuth.VERSION_1)
@@ -44,18 +45,29 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
       val (_,lines,lastLine) =
         text.split(' ').foldLeft((0,Nil:List[List[String]],Nil:List[String])) {
           (state, word) =>
-            val (col,linesAcc,lineAcc) = state
-            val newCol = col + 1 + word.size
-            if(col == 0) {  // always take first word
-              (word.size, linesAcc, word :: lineAcc)
-            } else if (newCol <= wrapCol) {  // word fits on line
-              (newCol, linesAcc, word :: lineAcc)
-            } else {  // too long, wrap word to next line
-              (0, lineAcc :: linesAcc, List(word))
+            if(word == "") {
+              state
+            } else {
+              val (col,linesAcc,lineAcc) = state
+              val newCol = col + 1 + word.size
+              val colorWord = word(0) match {
+                case '@' => Colors.MAGENTA + word + Colors.NORMAL
+                case '#' => Colors.CYAN    + word + Colors.NORMAL
+                case _   => word
+              }
+              if(col == 0) {  // always take first word
+                (word.size, linesAcc, colorWord :: lineAcc)
+              } else if (newCol <= wrapCol) {  // word fits on line
+                (newCol, linesAcc, colorWord :: lineAcc)
+              } else {  // too long, wrap word to next line
+                (0, lineAcc :: linesAcc, List(colorWord))
+              }
             }
         }
       (lastLine :: lines).reverse.map { _.reverse.mkString(" ") }
     }
+
+    val userMap = new HashMap[String,String]
 
     spawn {
       try {
@@ -64,21 +76,39 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
           val line = iter.next
           JSON.parseRaw(line) match { // Nasty, because of the poor typing in util.parsing.json
             case Some(JSONObject(m)) =>
-              (m.get("text"), m.get("id_str"), m.get("user")) match {
-                case (Some(t:String), Some(id:String), Some(JSONObject(u))) =>
-                  for(handle <- u.get("screen_name")) {
-                    val tweetUrl = "http://twitter.com/"+handle+"/status/"+id
-                    /* un-word-wrapped:
-                    sendMessage(chan, "@"+handle+": "+t+
-                                      shortenUrl(tweetUrl).map{ " | " + _ }.getOrElse(""))
-                    */
-                    val lines = wordWrap(t, 60)
-                    sendMessage(chan, "@%-13s: %s".format(handle, lines.head))
-                    lines.tail.foreach(sendIndented)
-                    sendMessage(chan, "."*30 + "  " + shortenUrl(tweetUrl).getOrElse(tweetUrl))
-                  }
-                case _ => println("Not tweet: "+line)
-              }
+              if(m.isDefinedAt("text")) {
+                (m.get("text"), m.get("id_str"), m.get("user")) match {
+                  case (Some(t:String), Some(statusId:String), Some(JSONObject(u))) =>
+                    (u.get("screen_name"), u.get("id_str")) match {
+                      case (Some(screenName:String), Some(userId:String)) => {
+                        val tweetUrl = "http://twitter.com/"+screenName+"/status/"+statusId
+                        /* un-word-wrapped:
+                        sendMessage(chan, "@"+screenName+": "+t+
+                                          shortenUrl(tweetUrl).map{ " | " + _ }.getOrElse(""))
+                        */
+                        val lines = wordWrap(t, 60)
+                        sendMessage(chan, "%s@%-14s%s %s".format(
+                            Colors.BOLD, screenName, Colors.NORMAL, lines.head))
+                        lines.tail.foreach(sendIndented)
+                        sendMessage(chan, Colors.DARK_GREEN + "."*40 + "  " +
+                                          shortenUrl(tweetUrl).getOrElse(tweetUrl) +
+                                          Colors.NORMAL)
+                        userMap += (userId -> screenName)
+                      }
+                    }
+                  case _ => println("Can't match tweet: "+line)
+                }
+              } /*else if(m.isDefinedAt("delete")) {
+                m.get("delete") match {
+                  case Some(JSONObject(d)) =>
+                    d.get("status") match {
+                      case Some(JSONObject(status)) =>
+                        for(userId <- status.get("user_id_str");
+                            statusId <- status.get("id_str"))
+                          sendAction(chan, "user %s deleted status %s".format(userId, statusId))
+                    }
+                }
+              }*/
             case _ => println("*** "+line)
           }
         }
