@@ -23,7 +23,8 @@ import concurrent.ops._
 import io.Source
 import annotation.tailrec
 
-class TweetStreamBot(server:String, port:Int, chan:String, nick:String)
+class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
+                     oauth:OAuthCredentials)
         extends Bot(server, port, chan, nick)
 {
   override def onConnect {
@@ -32,23 +33,29 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String)
 
     val userStreamUrl       = "https://userstream.twitter.com/2/user.json"
 
-    val oauthApiUrl         = "https://api.twitter.com/oauth/request_token"
-    val accessTokenUrl      = "https://api.twitter.com/oauth/access_token"
-    val authoriseUrl        = "https://api.twitter.com/oauth/authorize"
-
-    val oauthConsumerKey    = "x" // These values are specific to your account; see 
-    val oauthConsumerSecret = "y" // https://dev.twitter.com/docs/auth/tokens-devtwittercom
-
-    val oauthToken          = "xx"
-    val oauthTokenSecret    = "yy"
-
-    val req = new Requester(OAuth.HMAC_SHA1, oauthConsumerSecret, oauthConsumerKey,
-                            oauthToken, oauthTokenSecret, OAuth.VERSION_1)
+    val req = new Requester(OAuth.HMAC_SHA1, oauth.consumerSecret, oauth.consumerKey,
+                            oauth.token, oauth.tokenSecret, OAuth.VERSION_1)
     val stream = req.getResponse(userStreamUrl, Map()).getEntity.getContent
     val source = Source.fromInputStream(stream, "UTF-8")
 
-    val wrapCol = 60
     def sendIndented(line:String) { sendMessage(chan, " "*16 + line) }
+
+    def wordWrap(text:String, wrapCol:Int):List[String] = {
+      val (_,lines,lastLine) =
+        text.split(' ').foldLeft((0,Nil:List[List[String]],Nil:List[String])) {
+          (state, word) =>
+            val (col,linesAcc,lineAcc) = state
+            val newCol = col + 1 + word.size
+            if(col == 0) {  // always take first word
+              (word.size, linesAcc, word :: lineAcc)
+            } else if (newCol <= wrapCol) {  // word fits on line
+              (newCol, linesAcc, word :: lineAcc)
+            } else {  // too long, wrap word to next line
+              (0, lineAcc :: linesAcc, List(word))
+            }
+        }
+      (lastLine :: lines).reverse.map { _.reverse.mkString(" ") }
+    }
 
     spawn {
       try {
@@ -65,24 +72,10 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String)
                     sendMessage(chan, "@"+handle+": "+t+
                                       shortenUrl(tweetUrl).map{ " | " + _ }.getOrElse(""))
                     */
-                    t.split(' ').foldLeft((0,Nil:List[List[String]],Nil:List[String])) {
-                      (state, word) =>
-                        val (col,linesAcc,lineAcc) = state
-                        val newCol = col + 1 + word.size
-                        if(col == 0) {  // always take first word
-                          (word.size, linesAcc, word :: lineAcc)
-                        } else if (newCol <= wrapCol) {  // word fits on line
-                          (newCol,    linesAcc, word :: lineAcc)
-                        } else {  // too long, wrap word to next line
-                          (0, lineAcc :: linesAcc, List(word))
-                        }
-                    } match {
-                      case (_,lines,lastLine) =>
-                        val allLines = (lastLine :: lines).reverse.map { _.reverse.mkString(" ") }
-                        sendMessage(chan, "@%-13s: %s".format(handle, allLines.head))
-                        allLines.tail.foreach(sendIndented)
-                        sendMessage(chan, "."*30 + "  " + shortenUrl(tweetUrl).getOrElse(tweetUrl))
-                    }
+                    val lines = wordWrap(t, 60)
+                    sendMessage(chan, "@%-13s: %s".format(handle, lines.head))
+                    lines.tail.foreach(sendIndented)
+                    sendMessage(chan, "."*30 + "  " + shortenUrl(tweetUrl).getOrElse(tweetUrl))
                   }
                 case _ => println("Not tweet: "+line)
               }
