@@ -41,16 +41,22 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
 
     def colourNick(s:String) = Colors.BOLD + "@" + s + Colors.NORMAL
 
+    def fixEntities(s:String) =
+      s.replaceAll("&lt;",  "<")
+       .replaceAll("&gt;",  ">")
+       .replaceAll("&amp;", "&")
+
     val indentCols = 20
     val wrapCols = 60
 
     def wordWrap(text:String, wrapCol:Int):List[String] = {
       val (_,lines,lastLine) =
         text.split(' ').foldLeft((0,Nil:List[List[String]],Nil:List[String])) {
-          (state, word) =>
-            if(word == "") {
+          (state, rawWord) =>
+            if(rawWord == "") {
               state
             } else {
+              val word = fixEntities(rawWord)
               val (col,linesAcc,lineAcc) = state
               val newCol = col + 1 + word.size
               val colourWord = word(0) match {
@@ -77,47 +83,47 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
           val line = iter.next
           //println(line)
           JSON.parseRaw(line) match { // Nasty, because of the poor typing in util.parsing.json
-            case Some(JSONObject(m)) =>
-              if(m.isDefinedAt("text")) {
-                (m.get("id_str"), m.get("user"), m.get("retweeted_status")) match {
-                  case (Some(statusId:String),
-                        Some(JSONObject(u)),
-                        rt:Option[JSONObject]) =>
-                    (u.get("screen_name"), u.get("id_str")) match {
-                      case (Some(screenName:String), Some(userId:String)) => {
-                        val tweetUrl = "http://twitter.com/"+screenName+"/status/"+statusId
-                        /* un-word-wrapped:
-                        sendMessage(chan, "@"+screenName+": "+t+
-                                          shortenUrl(tweetUrl).map{ " | " + _ }.getOrElse(""))
-                        */
-                        val (lhs:List[String],text:String) = rt match {
-                          case Some(rtStatus) => // It is a re-tweet
-                            (rtStatus.obj.get("text"), rtStatus.obj.get("user")) match {
-                              case (Some(t:String), Some(JSONObject(u))) =>
-                                u.get("screen_name") match {
-                                  case Some(origScreenName:String) =>
-                                    (List("@"+origScreenName, " retweeted by", " @"+screenName), t)
-                                }
-                            }
-                          case None => // Not a re-tweet. TODO: Replies
-                            m.get("text") match {
-                              case Some(t:String) => (List("@"+screenName), t)
-                            }
-                        }
-                        val wrapped = text.split('\n').flatMap { wordWrap(_, wrapCols) }
-                        lhs.zipAll(wrapped, "", "").zipWithIndex.foreach {
-                          case ((a,b),i) =>
-                            sendMessage(chan, (if(i == 0) Colors.BOLD else Colors.DARK_BLUE) +
-                                              a + Colors.NORMAL +
-                                              " "*(2 max (indentCols - a.size)) + b)
-                        }
-                        sendMessage(chan, Colors.DARK_GREEN + "."*40 + "  " +
-                                          shortenUrl(tweetUrl).getOrElse(tweetUrl) +
-                                          Colors.NORMAL)
+            case Some(JSONObject(m)) if m.isDefinedAt("text") =>
+              (m.get("id_str"), m.get("user"), m.get("retweeted_status")) match {
+                case (Some(statusId:String),
+                      Some(JSONObject(u)),
+                      rt:Option[JSONObject]) =>
+                  (u.get("screen_name"), u.get("id_str")) match {
+                    case (Some(screenName:String), Some(userId:String)) => {
+                      val tweetUrl = "http://twitter.com/"+screenName+"/status/"+statusId
+                      /* un-word-wrapped:
+                      sendMessage(chan, "@"+screenName+": "+t+
+                                        shortenUrl(tweetUrl).map{ " | " + _ }.getOrElse(""))
+                      */
+                      val (lhs:List[String],text:String) = rt match {
+                        case Some(rtStatus) => // It is a re-tweet
+                          (rtStatus.obj.get("text"), rtStatus.obj.get("user")) match {
+                            case (Some(t:String), Some(JSONObject(u))) =>
+                              u.get("screen_name") match {
+                                case Some(origScreenName:String) =>
+                                  (List("@"+origScreenName, " retweeted by", " @"+screenName), t)
+                              }
+                            case _ => println("Could not match retweeted_status object in "+line)
+                          }
+                        case None => // Not a re-tweet. TODO: Replies
+                          m.get("text") match {
+                            case Some(t:String) => (List("@"+screenName), t)
+                          }
                       }
+                      val wrapped = text.split('\n').flatMap { wordWrap(_, wrapCols) }
+                      lhs.zipAll(wrapped, "", "").zipWithIndex.foreach {
+                        case ((a,b),i) =>
+                          sendMessage(chan, (if(i == 0) Colors.BOLD else Colors.DARK_BLUE) +
+                                            a + Colors.NORMAL +
+                                            " "*(2 max (indentCols - a.size)) + b)
+                      }
+                      sendMessage(chan, Colors.DARK_GREEN + "."*40 + "  " +
+                                        shortenUrl(tweetUrl).getOrElse(tweetUrl) +
+                                        Colors.NORMAL)
                     }
-                  case _ => println("Can't match tweet: "+line)
-                }
+                    case _ => println("Could not match user object in "+line)
+                  }
+                case _ => println("Could not match tweet: "+line)
               }
             case _ => println("*** "+line)
           }
