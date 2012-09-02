@@ -39,36 +39,45 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
     val stream = req.getResponse(userStreamUrl, Map()).getEntity.getContent
     val source = Source.fromInputStream(stream, "UTF-8")
 
+    val indentCols = 20
+    val wrapCols   = 60
+    val errorStr   = Colors.RED + "error" + Colors.NORMAL
+
+    val ScreenName = """@.*""".r
+    val HashTag    = """#.*""".r
+    val Url        = """https?:\/\/.*""".r
+
     def colourNick(s:String) = Colors.BOLD + "@" + s + Colors.NORMAL
+
+    def highlightWord(word:String) = word match {
+      case ScreenName() => Colors.MAGENTA + word + Colors.NORMAL
+      case HashTag()    => Colors.CYAN    + word + Colors.NORMAL
+      case Url()        => Colors.PURPLE  + word + Colors.NORMAL
+      case _            => word
+    }
 
     def fixEntities(s:String) =
       s.replaceAll("&lt;",  "<")
        .replaceAll("&gt;",  ">")
        .replaceAll("&amp;", "&")
 
-    val indentCols = 20
-    val wrapCols = 60
-
     def wordWrap(text:String, wrapCol:Int):List[String] = {
       val (_,lines,lastLine) =
-        text.split(' ').foldLeft((0,Nil:List[List[String]],Nil:List[String])) {
-          (state, rawWord) =>
-            if(rawWord == "") {
+        text.split(' ')
+        .map(fixEntities)
+        .foldLeft((0,Nil:List[List[String]],Nil:List[String])) {
+          (state,word) =>
+            if(word == "") {
               state
             } else {
-              val word = fixEntities(rawWord)
               val (col,linesAcc,lineAcc) = state
               val newCol = col + 1 + word.size
-              val colourWord = word(0) match {
-                case '@' => Colors.MAGENTA + word + Colors.NORMAL
-                case '#' => Colors.CYAN    + word + Colors.NORMAL
-                case _   => word
-              }
-              if(col == 0) {  // always take first word
+              val colourWord = highlightWord(word)
+              if(col == 0) {                   // always take first word
                 (word.size, linesAcc, colourWord :: lineAcc)
               } else if (newCol <= wrapCol) {  // word fits on line
                 (newCol, linesAcc, colourWord :: lineAcc)
-              } else {  // too long, wrap word to next line
+              } else {                         // too long, wrap to next line
                 (0, lineAcc :: linesAcc, List(colourWord))
               }
             }
@@ -76,52 +85,56 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
       (lastLine :: lines).reverse.map { _.reverse.mkString(" ") }
     }
 
+    def showTweet(leftColumn:List[String], text:String, tweetUrl:String) {
+      val wrapped = text
+                    .replaceAll("、", "、 ")  // hack to allow Japanese to wrap better
+                    .split('\n')             // respect newlines in original tweet
+                    .flatMap { wordWrap(_, wrapCols) }
+      leftColumn.zipAll(wrapped, "", "").zipWithIndex.foreach {
+        case ((a,b),i) =>
+          sendMessage(chan, (if(i == 0) Colors.BOLD else Colors.DARK_BLUE) +
+                            a + Colors.NORMAL +
+                            " "*(2 max (indentCols - a.size)) + b)
+      }
+      sendMessage(chan, Colors.DARK_GREEN + "."*40 + "  " +
+                        shortenUrl(tweetUrl).getOrElse(tweetUrl) +
+                        Colors.NORMAL)
+    }
+
     spawn {
       try {
         val iter = source.getLines
         while(!Quit.signaled && iter.hasNext) {
           val line = iter.next
-          //println(line)
           JSON.parseRaw(line) match { // Nasty, because of the poor typing in util.parsing.json
             case Some(JSONObject(m)) if m.isDefinedAt("text") =>
-              (m.get("id_str"), m.get("user"), m.get("retweeted_status")) match {
-                case (Some(statusId:String),
-                      Some(JSONObject(u)),
-                      rt:Option[JSONObject]) =>
-                  (u.get("screen_name"), u.get("id_str")) match {
-                    case (Some(screenName:String), Some(userId:String)) => {
+              (m.get("id_str"), m.get("user")) match {
+                case (Some(statusId:String),   // required
+                      Some(JSONObject(u))) =>  // required
+                  u.get("screen_name") match {
+                    case Some(screenName:String) => {
                       val tweetUrl = "http://twitter.com/"+screenName+"/status/"+statusId
-                      /* un-word-wrapped:
-                      sendMessage(chan, "@"+screenName+": "+t+
-                                        shortenUrl(tweetUrl).map{ " | " + _ }.getOrElse(""))
-                      */
-                      val (lhs:List[String],text:String) = rt match {
-                        case Some(rtStatus) => // It is a re-tweet
-                          (rtStatus.obj.get("text"), rtStatus.obj.get("user")) match {
-                            case (Some(t:String), Some(JSONObject(u))) =>
-                              u.get("screen_name") match {
-                                case Some(origScreenName:String) =>
-                                  (List("@"+origScreenName, " retweeted by", " @"+screenName), t)
-                              }
+                      m.get("retweeted_status") match {
+                        case Some(JSONObject(rtStatus)) => // It is a re-tweet
+                          (rtStatus.get("text"), rtStatus.get("user")) match {
+                            case (Some(t:String),
+                                  Some(JSONObject(u))) =>
+                              showTweet(List(u.get("screen_name").map{ "@"+_ }.getOrElse(errorStr),
+                                             " retweeted by",
+                                             " @"+screenName),
+                                        t,
+                                        tweetUrl)
                             case _ => println("Could not match retweeted_status object in "+line)
                           }
                         case None => // Not a re-tweet. TODO: Replies
-                          m.get("text") match {
-                            case Some(t:String) => (List("@"+screenName), t)
+                          val text = m.get("text") match { // Have do use match to ascribe a type
+                            case Some(t:String) => t
+                            case None => errorStr
                           }
+                          showTweet(List("@"+screenName), text, tweetUrl)
                       }
-                      val wrapped = text.split('\n').flatMap { wordWrap(_, wrapCols) }
-                      lhs.zipAll(wrapped, "", "").zipWithIndex.foreach {
-                        case ((a,b),i) =>
-                          sendMessage(chan, (if(i == 0) Colors.BOLD else Colors.DARK_BLUE) +
-                                            a + Colors.NORMAL +
-                                            " "*(2 max (indentCols - a.size)) + b)
-                      }
-                      sendMessage(chan, Colors.DARK_GREEN + "."*40 + "  " +
-                                        shortenUrl(tweetUrl).getOrElse(tweetUrl) +
-                                        Colors.NORMAL)
                     }
-                    case _ => println("Could not match user object in "+line)
+                    case _ => println("Could not match user screen_name in "+line)
                   }
                 case _ => println("Could not match tweet: "+line)
               }

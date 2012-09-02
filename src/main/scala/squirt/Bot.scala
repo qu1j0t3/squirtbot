@@ -66,11 +66,15 @@ class Bot(server:String, port:Int, val chan:String, nick:String) extends PircBot
   def shortenUrl(longUrl:String):Option[String] = {
     val ShortUrl = """^.*Your ur1 is: <a href="(.*?)">.*$""".r
 
-    val resp = Request.Post("http://ur1.ca/")
-                      .bodyForm(Form.form().add("longurl", longUrl).build())
-                      .execute()
-                      .returnResponse()
-    val source = Source.fromInputStream(resp.getEntity.getContent, "UTF-8")
-    source.getLines.collectFirst { case ShortUrl(url) => url }
+    try { // on flaky networks, this may abort with org.apache.http.NoHttpResponseException, etc
+      val resp = Request.Post("http://ur1.ca/")
+                        .bodyForm(Form.form().add("longurl", longUrl).build())
+                        .execute()
+                        .returnResponse()
+      val source = Source.fromInputStream(resp.getEntity.getContent, "UTF-8")
+      source.getLines.collectFirst { case ShortUrl(url) => url }
+    } catch {
+      case _ => None
+    }
   }
 }
