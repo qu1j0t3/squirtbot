@@ -21,7 +21,6 @@ package main.scala.squirt
 
 import concurrent.ops._
 import io.Source
-import collection.mutable.HashMap
 import org.jibble.pircbot.Colors
 
 class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
@@ -106,34 +105,17 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
         val iter = source.getLines
         while(!Quit.signaled && iter.hasNext) {
           val line = iter.next
-          JSON.parseRaw(line) match { // Nasty, because of the poor typing in util.parsing.json
-            case Some(JSONObject(m)) =>
-              (m.get("text"), m.get("id_str"), m.get("user")) match {
-                case (Some(tweet:String),      // required
-                      Some(statusId:String),   // required
-                      Some(JSONObject(u))) =>  // required
-                  u.get("screen_name") match {
-                    case Some(screenName:String) => {
-                      val tweetUrl = "http://twitter.com/"+screenName+"/status/"+statusId
-                      m.get("retweeted_status") match {
-                        case Some(JSONObject(rtStatus)) => // It is a re-tweet
-                          (rtStatus.get("text"), rtStatus.get("user")) match {
-                            case (Some(t:String),
-                                  Some(JSONObject(u))) =>
-                              showTweet(List(u.get("screen_name").map{ "@"+_ }.getOrElse(errorStr),
-                                             " retweeted by",
-                                             " @"+screenName),
-                                        t,
-                                        tweetUrl)
-                            case _ => println("Could not match retweeted_status object in "+line)
-                          }
-                        case None => // Not a re-tweet. TODO: Replies
-                          showTweet(List("@"+screenName), tweet, tweetUrl)
-                      }
-                    }
-                    case _ => println("Could not match user screen_name in "+line)
-                  }
-                case _ => println("Could not match tweet: "+line)
+          JSON.parseRaw(line) match {
+            case Some(Tweet(t)) =>
+              t.retweet match {
+                case None =>      // Ordinary tweet. TODO: Replies
+                  showTweet(List("@"+t.user.screenName), t.text, t.url)
+                case Some(rt) =>  // Re-tweet
+                  showTweet(List("@"+rt.user.screenName,
+                                 " retweeted by",
+                                 " @"+t.user.screenName),
+                            rt.text,
+                            t.url)
               }
             case _ => println("*** "+line)
           }
