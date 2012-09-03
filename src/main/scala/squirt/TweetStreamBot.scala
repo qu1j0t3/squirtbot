@@ -107,9 +107,10 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
         while(!Quit.signaled && iter.hasNext) {
           val line = iter.next
           JSON.parseRaw(line) match { // Nasty, because of the poor typing in util.parsing.json
-            case Some(JSONObject(m)) if m.isDefinedAt("text") =>
-              (m.get("id_str"), m.get("user")) match {
-                case (Some(statusId:String),   // required
+            case Some(JSONObject(m)) =>
+              (m.get("text"), m.get("id_str"), m.get("user")) match {
+                case (Some(tweet:String),      // required
+                      Some(statusId:String),   // required
                       Some(JSONObject(u))) =>  // required
                   u.get("screen_name") match {
                     case Some(screenName:String) => {
@@ -127,11 +128,7 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
                             case _ => println("Could not match retweeted_status object in "+line)
                           }
                         case None => // Not a re-tweet. TODO: Replies
-                          val text = m.get("text") match { // Have do use match to ascribe a type
-                            case Some(t:String) => t
-                            case None => errorStr
-                          }
-                          showTweet(List("@"+screenName), text, tweetUrl)
+                          showTweet(List("@"+screenName), tweet, tweetUrl)
                       }
                     }
                     case _ => println("Could not match user screen_name in "+line)
