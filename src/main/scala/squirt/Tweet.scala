@@ -49,8 +49,8 @@ class Tweet(val text:String,
 
   def format(send:String=>Unit, leftColumn:List[String], text:String) {
     val wrapped = text
-                  .replaceAll("?", "? ")  // hack to allow Japanese to wrap better
-                  .split('\n')             // respect newlines in original tweet
+                  .replace("?", "? ")  // hack to allow Japanese to wrap better
+                  .split('\n')          // respect newlines in original tweet
                   .flatMap { wordWrap(_, wrapCols, highlightWord) }
     leftColumn.zipAll(wrapped, "", "").zipWithIndex.foreach {
       case ((a,b),i) =>

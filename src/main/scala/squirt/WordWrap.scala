@@ -20,12 +20,13 @@
 package main.scala.squirt
 
 trait WordWrap {
+
   def wordWrap(text:String, wrapCol:Int, highlighter:String=>String):List[String] = {
-    
+
     def fixEntities(s:String) =
-      s.replaceAll("&lt;",  "<")
-       .replaceAll("&gt;",  ">")
-       .replaceAll("&amp;", "&")
+      s.replace("&lt;",  "<")
+       .replace("&gt;",  ">")
+       .replace("&amp;", "&")
 
     val (_,lines,lastLine) =
       text.split(' ')
@@ -49,4 +50,5 @@ trait WordWrap {
       }
     (lastLine :: lines).reverse.map { _.reverse.mkString(" ") }
   }
+
 }
