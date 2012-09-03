@@ -21,16 +21,14 @@ package main.scala.squirt
 
 import concurrent.ops._
 import io.Source
-import org.jibble.pircbot.Colors
+import util.parsing.json._  // TODO: Find better library. This is rather broken.
+import jm.oauth._
 
 class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
                      oauth:OAuthCredentials)
         extends Bot(server, port, chan, nick)
 {
   override def onConnect {
-    import util.parsing.json._  // TODO: Find better library. This is rather broken.
-    import jm.oauth._
-
     val userStreamUrl = "https://userstream.twitter.com/2/user.json"
 
     val req = new Requester(OAuth.HMAC_SHA1, oauth.consumerSecret, oauth.consumerKey,
@@ -38,83 +36,13 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
     val stream = req.getResponse(userStreamUrl, Map()).getEntity.getContent
     val source = Source.fromInputStream(stream, "UTF-8")
 
-    val indentCols = 20
-    val wrapCols   = 60
-
-    val ScreenName = """@.*""".r
-    val HashTag    = """#.*""".r
-    val Url        = """https?:\/\/.*""".r
-
-    def highlightWord(word:String) = word match {
-      case ScreenName() => Colors.MAGENTA + word + Colors.NORMAL
-      case HashTag()    => Colors.CYAN    + word + Colors.NORMAL
-      case Url()        => Colors.PURPLE  + word + Colors.NORMAL
-      case _            => word
-    }
-    def highlightUrl(s:String)     = Colors.DARK_GREEN + s + Colors.NORMAL
-    def highlightNick(s:String)    = Colors.BOLD       + s + Colors.NORMAL
-    def highlightLeftCol(s:String) = Colors.DARK_BLUE  + s + Colors.NORMAL
-
-    def fixEntities(s:String) =
-      s.replaceAll("&lt;",  "<")
-       .replaceAll("&gt;",  ">")
-       .replaceAll("&amp;", "&")
-
-    def wordWrap(text:String, wrapCol:Int):List[String] = {
-      val (_,lines,lastLine) =
-        text.split(' ')
-        .map(fixEntities)
-        .foldLeft((0,Nil:List[List[String]],Nil:List[String])) {
-          (state,word) =>
-            if(word == "") {
-              state
-            } else {
-              val (col,linesAcc,lineAcc) = state
-              val newCol = col + 1 + word.size
-              val colourWord = highlightWord(word)
-              if(col == 0) {                   // always take first word
-                (word.size, linesAcc, colourWord :: lineAcc)
-              } else if (newCol <= wrapCol) {  // word fits on line
-                (newCol, linesAcc, colourWord :: lineAcc)
-              } else {                         // too long, wrap to next line
-                (0, lineAcc :: linesAcc, List(colourWord))
-              }
-            }
-        }
-      (lastLine :: lines).reverse.map { _.reverse.mkString(" ") }
-    }
-
-    def showTweet(leftColumn:List[String], text:String, tweetUrl:String) {
-      val wrapped = text
-                    .replaceAll("、", "、 ")  // hack to allow Japanese to wrap better
-                    .split('\n')             // respect newlines in original tweet
-                    .flatMap { wordWrap(_, wrapCols) }
-      leftColumn.zipAll(wrapped, "", "").zipWithIndex.foreach {
-        case ((a,b),i) =>
-          sendMessage(chan, (if(i == 0) highlightNick(a) else highlightLeftCol(a)) +
-                            " "*(2 max (indentCols - a.size)) + b)
-      }
-      sendMessage(chan, highlightUrl("."*40 + "  " +
-                                     shortenUrl(tweetUrl).getOrElse(tweetUrl)))
-    }
-
     spawn {
       try {
         val iter = source.getLines
         while(!Quit.signaled && iter.hasNext) {
           val line = iter.next
           JSON.parseRaw(line) match {
-            case Some(Tweet(t)) =>
-              t.retweet match {
-                case None =>      // Ordinary tweet. TODO: Replies
-                  showTweet(List("@"+t.user.screenName), t.text, t.url)
-                case Some(rt) =>  // Re-tweet
-                  showTweet(List("@"+rt.user.screenName,
-                                 " retweeted by",
-                                 " @"+t.user.screenName),
-                            rt.text,
-                            t.url)
-              }
+            case Some(Tweet(t)) => t.sendTweet( sendMessage(chan, _) )
             case _ => println("*** "+line)
           }
         }

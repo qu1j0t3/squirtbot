@@ -19,12 +19,8 @@
 
 package main.scala.squirt
 
-import io.Source
 import java.lang.Thread
 import org.jibble.pircbot.PircBot
-
-import org.apache.http.impl.client.DefaultHttpClient
-import org.apache.http.client.fluent._
 
 class Bot(server:String, port:Int, val chan:String, nick:String) extends PircBot {
   protected object Quit extends Signal
@@ -61,20 +57,4 @@ class Bot(server:String, port:Int, val chan:String, nick:String) extends PircBot
     checkCommand(message)
   }*/
 
-  protected val client = new DefaultHttpClient  // TODO: set long keepalive (1 minute?)
-  
-  def shortenUrl(longUrl:String):Option[String] = {
-    val ShortUrl = """^.*Your ur1 is: <a href="(.*?)">.*$""".r
-
-    try { // on flaky networks, this may abort with org.apache.http.NoHttpResponseException, etc
-      val resp = Request.Post("http://ur1.ca/")
-                        .bodyForm(Form.form().add("longurl", longUrl).build())
-                        .execute()
-                        .returnResponse()
-      val source = Source.fromInputStream(resp.getEntity.getContent, "UTF-8")
-      source.getLines.collectFirst { case ShortUrl(url) => url }
-    } catch {
-      case _ => None
-    }
-  }
 }

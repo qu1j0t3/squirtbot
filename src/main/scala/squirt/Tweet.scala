@@ -20,12 +20,58 @@
 package main.scala.squirt
 
 import util.parsing.json._
+import org.jibble.pircbot.Colors
 
 class Tweet(val text:String,
             val id:String,
             val user:TwitterUser,
-            val retweet:Option[Tweet]) {
+            val retweet:Option[Tweet])
+    extends Ur1Ca with WordWrap
+{
   def url:String = "http://twitter.com/" + user.screenName + "/status/" + id
+
+  val indentCols = 20
+  val wrapCols   = 60
+
+  val ScreenName = """@.*""".r
+  val HashTag    = """#.*""".r
+  val Url        = """https?:\/\/.*""".r
+
+  def highlightWord(word:String) = word match {
+    case ScreenName() => Colors.MAGENTA + word + Colors.NORMAL
+    case HashTag()    => Colors.CYAN    + word + Colors.NORMAL
+    case Url()        => Colors.PURPLE  + word + Colors.NORMAL
+    case _            => word
+  }
+  def highlightUrl(s:String)     = Colors.DARK_GREEN + s + Colors.NORMAL
+  def highlightNick(s:String)    = Colors.BOLD       + s + Colors.NORMAL
+  def highlightLeftCol(s:String) = Colors.DARK_BLUE  + s + Colors.NORMAL
+
+  def format(send:String=>Unit, leftColumn:List[String], text:String) {
+    val wrapped = text
+                  .replaceAll("?", "? ")  // hack to allow Japanese to wrap better
+                  .split('\n')             // respect newlines in original tweet
+                  .flatMap { wordWrap(_, wrapCols, highlightWord) }
+    leftColumn.zipAll(wrapped, "", "").zipWithIndex.foreach {
+      case ((a,b),i) =>
+        send((if(i == 0) highlightNick(a) else highlightLeftCol(a)) +
+             " "*(2 max (indentCols - a.size)) + b)
+    }
+    send(highlightUrl("."*40 + "  " + shortenUrl(url).getOrElse(url)))
+  }
+
+  def sendTweet(send:String=>Unit) {
+    retweet match {
+      case None =>      // Ordinary tweet. TODO: Replies
+        format(send, List("@"+user.screenName), text)
+      case Some(rt) =>  // Re-tweet
+        format(send,
+               List("@"+rt.user.screenName,
+                    " retweeted by",
+                    " @"+user.screenName),
+               rt.text)
+    }
+  }
 }
 
 object Tweet {
