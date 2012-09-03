@@ -40,13 +40,10 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
 
     val indentCols = 20
     val wrapCols   = 60
-    val errorStr   = Colors.RED + "error" + Colors.NORMAL
 
     val ScreenName = """@.*""".r
     val HashTag    = """#.*""".r
     val Url        = """https?:\/\/.*""".r
-
-    def colourNick(s:String) = Colors.BOLD + "@" + s + Colors.NORMAL
 
     def highlightWord(word:String) = word match {
       case ScreenName() => Colors.MAGENTA + word + Colors.NORMAL
@@ -54,6 +51,9 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
       case Url()        => Colors.PURPLE  + word + Colors.NORMAL
       case _            => word
     }
+    def highlightUrl(s:String)     = Colors.DARK_GREEN + s + Colors.NORMAL
+    def highlightNick(s:String)    = Colors.BOLD       + s + Colors.NORMAL
+    def highlightLeftCol(s:String) = Colors.DARK_BLUE  + s + Colors.NORMAL
 
     def fixEntities(s:String) =
       s.replaceAll("&lt;",  "<")
@@ -91,13 +91,11 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
                     .flatMap { wordWrap(_, wrapCols) }
       leftColumn.zipAll(wrapped, "", "").zipWithIndex.foreach {
         case ((a,b),i) =>
-          sendMessage(chan, (if(i == 0) Colors.BOLD else Colors.DARK_BLUE) +
-                            a + Colors.NORMAL +
+          sendMessage(chan, (if(i == 0) highlightNick(a) else highlightLeftCol(a)) +
                             " "*(2 max (indentCols - a.size)) + b)
       }
-      sendMessage(chan, Colors.DARK_GREEN + "."*40 + "  " +
-                        shortenUrl(tweetUrl).getOrElse(tweetUrl) +
-                        Colors.NORMAL)
+      sendMessage(chan, highlightUrl("."*40 + "  " +
+                                     shortenUrl(tweetUrl).getOrElse(tweetUrl)))
     }
 
     spawn {
