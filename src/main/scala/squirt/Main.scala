@@ -19,8 +19,6 @@
 
 package main.scala.squirt
 
-import java.lang.Thread
-import concurrent.ops._
 import util.Random
 import math._
 
