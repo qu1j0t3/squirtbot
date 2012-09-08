@@ -24,8 +24,7 @@ import org.jibble.pircbot.Colors
 
 class Tweet(val text:String,
             val id:String,
-            val user:TwitterUser,
-            val retweet:Option[Tweet])
+            val user:TwitterUser)
     extends Ur1Ca with WordWrap
 {
   def url:String = "http://twitter.com/" + user.screenName + "/status/" + id
@@ -61,25 +60,14 @@ class Tweet(val text:String,
   }
 
   def sendTweet(send:String=>Unit) {
-    retweet match {
-      case None =>      // Ordinary tweet. TODO: Replies
-        format(send, List("@"+user.screenName), text)
-      case Some(rt) =>  // Re-tweet
-        format(send,
-               List("@"+rt.user.screenName,
-                    " retweeted by",
-                    " @"+user.screenName),
-               rt.text)
-    }
+    // Ordinary tweet. TODO: Replies
+    format(send, List("@"+user.screenName), text)
   }
 }
 
 object Tweet {
-  // Note: the parameter type is a more specific type than need
-  //       be matched in the case which refers to this extractor.
-  //       If the type doesn't match, match fails before extractor is tried.
+  // Note: Parameter type JSONObject is already narrowing the match.
   //       (see http://www.artima.com/pins1ed/extractors.html )
-  // Cannot match on Option[T] due to type erasure.
   def unapply(m:JSONObject):Option[Tweet] =
     (m.obj.get("text"),
      m.obj.get("id_str"),
@@ -88,15 +76,13 @@ object Tweet {
       case (Some(text:String),
             Some(id:String),
             Some(TwitterUser(user)),
-            maybeRT) =>
-        Some(new Tweet(text,
-                       id,
-                       user,
-                       maybeRT match {
-                         case Some(rt:JSONObject) => unapply(rt)
-                         case _ => None
-                       } ))
+            retweetedStatus) =>
+        Some(
+          retweetedStatus match {
+            case Some(Tweet(rt)) => new Retweet(text, id, user, rt)
+            case _               => new Tweet(text, id, user)
+          } )
       case _ =>
-        None
+        None  // don't recognise this as a tweet
     }
 }
