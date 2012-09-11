@@ -23,7 +23,7 @@ import io.Source
 import org.apache.http.impl.client.DefaultHttpClient
 import org.apache.http.client.fluent._
 
-class Ur1Ca extends UrlShortener {
+object Ur1Ca extends UrlShortener {
   protected val client = new DefaultHttpClient  // TODO: set long keepalive (1 minute?)
 
   def shortenUrl(longUrl:String):Option[String] = {

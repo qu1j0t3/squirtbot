@@ -19,9 +19,9 @@
 
 package main.scala.squirt
 
-trait WordWrap {
+object WordWrap {
 
-  def wordWrap(text:String, wrapCol:Int, highlighter:String=>String):List[String] = {
+  def wrap(text:String, wrapCol:Int, highlighter:String=>String):List[String] = {
 
     def fixEntities(s:String) =
       s.replace("&lt;",  "<")

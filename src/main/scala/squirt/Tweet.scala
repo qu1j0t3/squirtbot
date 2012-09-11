@@ -25,7 +25,6 @@ import org.jibble.pircbot.Colors
 class Tweet(val text:String,
             val id:String,
             val user:TwitterUser)
-    extends Ur1Ca with WordWrap
 {
   def url:String = "http://twitter.com/" + user.screenName + "/status/" + id
 
@@ -50,13 +49,13 @@ class Tweet(val text:String,
     val wrapped = text
                   .replace("?", "? ")  // hack to allow Japanese to wrap better
                   .split('\n')          // respect newlines in original tweet
-                  .flatMap { wordWrap(_, wrapCols, highlightWord) }
+                  .flatMap { WordWrap.wrap(_, wrapCols, highlightWord) }
     leftColumn.zipAll(wrapped, "", "").zipWithIndex.foreach {
       case ((a,b),i) =>
         send((if(i == 0) highlightNick(a) else highlightLeftCol(a)) +
              " "*(2 max (indentCols - a.size)) + b)
     }
-    send(highlightUrl("."*40 + "  " + shortenUrl(url).getOrElse(url)))
+    send(highlightUrl("."*40 + "  " + Ur1Ca.shortenUrl(url).getOrElse(url)))
   }
 
   def sendTweet(send:String=>Unit) {
