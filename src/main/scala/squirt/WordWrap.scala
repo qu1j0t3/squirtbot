@@ -30,17 +30,17 @@ object WordWrap {
 
     val (_,lines,lastLine) =
       fixEntities(text).split(' ')
-      .foldLeft((0,Nil:List[List[String]],Nil:List[String])) {
+      .foldLeft((0, Nil:List[List[String]], Nil:List[String])) {
         (state,word) => {
           val (column,linesAcc,lineAcc) = state
           val newCol = column + 1 + word.size
           val colourWord = highlighter(word)
-          if(column == 0)                   // always take first word
+          if(column == 0)              // always take first word
             (word.size, linesAcc, colourWord :: lineAcc)
           else if (newCol <= wrapCol)  // word fits on line
             (newCol, linesAcc, colourWord :: lineAcc)
           else                         // too long, wrap to next line
-            (0, lineAcc :: linesAcc, List(colourWord))
+            (word.size, lineAcc :: linesAcc, List(colourWord))
         }
       }
     (lastLine :: lines).reverse.map { _.reverse.mkString(" ") }

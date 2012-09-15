@@ -24,7 +24,7 @@ import org.apache.http.impl.client.DefaultHttpClient
 import org.apache.http.client.fluent._
 
 object Ur1Ca extends UrlShortener {
-  protected val client = new DefaultHttpClient  // TODO: set long keepalive (1 minute?)
+  protected lazy val client = new DefaultHttpClient
 
   def shortenUrl(longUrl:String):Option[String] = {
     val ShortUrl = """^.*Your ur1 is: <a href="(.*?)">.*$""".r
@@ -34,8 +34,12 @@ object Ur1Ca extends UrlShortener {
                         .bodyForm(Form.form().add("longurl", longUrl).build())
                         .execute()
                         .returnResponse()
-      val source = Source.fromInputStream(resp.getEntity.getContent, "UTF-8")
-      source.getLines.collectFirst { case ShortUrl(url) => url }
+      val status = resp.getStatusLine.getStatusCode
+      if(status >= 200 && status < 300)
+        Source.fromInputStream(resp.getEntity.getContent, "UTF-8")
+        .getLines.collectFirst { case ShortUrl(url) => url }
+      else
+        None
     } catch {
       case _ => None
     }
