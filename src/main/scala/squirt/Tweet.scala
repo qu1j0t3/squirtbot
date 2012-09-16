@@ -20,7 +20,7 @@
 package main.scala.squirt
 
 import util.parsing.json._
-import org.jibble.pircbot.Colors
+import org.jibble.pircbot.Colors._
 
 class Tweet(val text:String,
             val id:String,
@@ -36,14 +36,14 @@ class Tweet(val text:String,
   val Url        = """https?:\/\/.*""".r
 
   def highlightWord(word:String) = word match {
-    case ScreenName() => Colors.MAGENTA + word + Colors.NORMAL
-    case HashTag()    => Colors.CYAN    + word + Colors.NORMAL
-    case Url()        => Colors.PURPLE  + word + Colors.NORMAL
+    case ScreenName() => MAGENTA + word + NORMAL
+    case HashTag()    => CYAN    + word + NORMAL
+    case Url()        => PURPLE  + word + NORMAL
     case _            => word
   }
-  def highlightUrl(s:String)     = Colors.DARK_GREEN + s + Colors.NORMAL
-  def highlightNick(s:String)    = Colors.BOLD       + s + Colors.NORMAL
-  def highlightLeftCol(s:String) = Colors.DARK_BLUE  + s + Colors.NORMAL
+  def highlightUrl(s:String)     = DARK_GREEN + s + NORMAL
+  def highlightNick(s:String)    = BOLD       + s + NORMAL
+  def highlightLeftCol(s:String) = DARK_BLUE  + s + NORMAL
 
   def format(send:String=>Unit, leftColumn:List[String], text:String) {
     val wrapped = text
@@ -58,7 +58,6 @@ class Tweet(val text:String,
   }
 
   def sendTweet(send:String=>Unit) {
-    // Ordinary tweet. TODO: Replies
     format(send, List("@"+user.screenName), text)
   }
 }
