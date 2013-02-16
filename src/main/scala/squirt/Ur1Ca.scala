@@ -39,7 +39,8 @@ object Ur1Ca extends UrlShortener {
       val status = resp.getStatusLine.getStatusCode
       if(status >= 200 && status < 300)
         Source.fromInputStream(resp.getEntity.getContent, "UTF-8")
-        .getLines.collectFirst { case ShortUrl(url) => url }
+              .getLines
+              .collectFirst { case ShortUrl(url) => url }
       else
         None
     } catch {

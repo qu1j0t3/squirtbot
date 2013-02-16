@@ -29,7 +29,8 @@ object WordWrap {
        .replace("&amp;", "&")
 
     val (_,lines,lastLine) =
-      fixEntities(text).split(' ')
+      fixEntities(text)
+      .split(' ')
       .foldLeft((0, Nil:List[List[String]], Nil:List[String])) {
         (state,word) => {
           val (column,linesAcc,lineAcc) = state
@@ -43,7 +44,7 @@ object WordWrap {
             (word.size, lineAcc :: linesAcc, List(colourWord))
         }
       }
-    (lastLine :: lines).reverse.map { _.reverse.mkString(" ") }
+    (lastLine :: lines).reverse.map(_.reverse.mkString(" "))
   }
 
 }

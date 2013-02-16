@@ -31,8 +31,8 @@ class Tweet(val text:String,
   val indentCols = 20
   val wrapCols   = 60
 
-  val ScreenName = """@.*""".r
-  val HashTag    = """#.*""".r
+  val ScreenName = """@.+""".r
+  val HashTag    = """#.+""".r
   val Url        = """https?:\/\/.*""".r
 
   def highlightWord(word:String) = word match {
