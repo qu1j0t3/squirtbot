@@ -28,7 +28,7 @@ class Bot(server:String, port:Int, val chan:String, nick:String) extends PircBot
   def run {
     //setVerbose(true)
     setEncoding("UTF-8")
-    setMessageDelay(100)
+    setMessageDelay(300)
     setName(nick)
     connect(server, port)
     joinChannel(chan)
