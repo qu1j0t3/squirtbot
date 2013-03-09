@@ -44,7 +44,7 @@ object Ur1Ca extends UrlShortener {
       else
         None
     } catch {
-      case _ => None
+      case _:Exception => None
     }
   }
 }

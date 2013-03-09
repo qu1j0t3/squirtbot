@@ -47,7 +47,7 @@ class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
           }
         }
       } catch {
-        case e => sendAction(chan, e.getMessage); e.printStackTrace
+        case e:Exception => sendAction(chan, e.getMessage); e.printStackTrace
       }
       Quit.signal
     }
