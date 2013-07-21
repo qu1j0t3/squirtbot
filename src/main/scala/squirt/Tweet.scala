@@ -28,7 +28,7 @@ class Tweet(val text:String,
 {
   def url:String = "http://twitter.com/" + user.screenName + "/status/" + id
 
-  val indentCols = 20
+  val indentCols = 17
   val wrapCols   = 60
 
   val ScreenName = """@.+""".r
