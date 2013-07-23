@@ -20,6 +20,7 @@
 package main.scala.squirt
 
 import java.lang.Thread
+import java.io.IOException
 import org.jibble.pircbot.PircBot
 
 class Bot(server:String, port:Int, val chan:String, nick:String) extends PircBot {
@@ -53,6 +54,19 @@ class Bot(server:String, port:Int, val chan:String, nick:String) extends PircBot
                          hostname:String, message:String) {
     checkCommand(message)
   }
+
+  override def onDisconnect() {
+    Thread.sleep(5000)
+    try {
+      connect(server, port)
+      joinChannel(chan)
+    }
+    catch {
+      case _:IOException => onDisconnect()
+      case _:Exception   => Quit.signal
+    }
+  }
+
   /*override def onPrivateMessage(sender:String, login:String,
                                 hostname:String, message:String) {
     checkCommand(message)
