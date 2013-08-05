@@ -58,4 +58,12 @@ class Bot(server:String, port:Int, val chan:String, nick:String) extends PircBot
     checkCommand(message)
   }*/
 
+  override def onQuit(sourceNick:String, sourceLogin:String, sourceHostname:String, reason:String) {
+    if(sourceNick.equals(nick)) {
+      println("QUIT channel: %s; rejoining in 2 secs".format(reason))
+      Thread.sleep(2000)
+      joinChannel(chan)
+    }
+  }
+
 }
