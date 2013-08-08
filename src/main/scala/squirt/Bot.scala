@@ -50,6 +50,11 @@ class Bot(server:String, port:Int, val chan:String, nick:String) extends PircBot
     }
   }
 
+  /*override def onPrivateMessage(sender:String, login:String,
+                                hostname:String, message:String) {
+    checkCommand(message)
+  }*/
+
   override def onMessage(channel:String, sender:String, login:String,
                          hostname:String, message:String) {
     checkCommand(message)
@@ -58,7 +63,7 @@ class Bot(server:String, port:Int, val chan:String, nick:String) extends PircBot
   override def onDisconnect() {
     Thread.sleep(5000)
     try {
-      connect(server, port)
+      reconnect()
       joinChannel(chan)
     }
     catch {
@@ -67,16 +72,10 @@ class Bot(server:String, port:Int, val chan:String, nick:String) extends PircBot
     }
   }
 
-  /*override def onPrivateMessage(sender:String, login:String,
-                                hostname:String, message:String) {
-    checkCommand(message)
-  }*/
-
   override def onQuit(sourceNick:String, sourceLogin:String, sourceHostname:String, reason:String) {
     if(sourceNick.equals(nick)) {
-      println("QUIT channel: %s; rejoining in 2 secs".format(reason))
-      Thread.sleep(2000)
-      joinChannel(chan)
+      println("QUIT channel: %s".format(reason))
+      onDisconnect()
     }
   }
 
