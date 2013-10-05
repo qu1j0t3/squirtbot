@@ -22,6 +22,7 @@ package main.scala.squirt
 import java.lang.Thread
 import java.io.IOException
 import org.jibble.pircbot.PircBot
+import annotation.tailrec
 
 class Bot(server:String, port:Int, val chan:String, nick:String) extends PircBot {
   protected object Quit extends Signal
@@ -61,15 +62,29 @@ class Bot(server:String, port:Int, val chan:String, nick:String) extends PircBot
   }
 
   override def onDisconnect() {
-    Thread.sleep(5000)
-    try {
-      reconnect()
-      joinChannel(chan)
+    @tailrec
+    def reconn(n:Int) {
+      Thread.sleep(5000)
+      println("Attempting reconnect (%d)...".format(n))
+      ((try {
+          reconnect()
+          joinChannel(chan)
+          None
+        }
+        catch {
+          case e:IOException => println(e.getMessage); Some(true)
+          case _:Exception   => Some(false)
+        }
+      ):Option[Boolean]) match {
+        // This is a workaround for the RHS of the catch case not being
+        // considered tail position. Also, returning a lambda from the
+        // try catch doesn't work either (because it's not a direct self call?)
+        case Some(true) => reconn(n+1)
+        case Some(false) => Quit.signal
+        case None => ()
+      }
     }
-    catch {
-      case _:IOException => onDisconnect()
-      case _:Exception   => Quit.signal
-    }
+    reconn(1)
   }
 
   override def onQuit(sourceNick:String, sourceLogin:String, sourceHostname:String, reason:String) {
