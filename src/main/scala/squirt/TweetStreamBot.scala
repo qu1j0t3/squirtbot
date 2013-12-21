@@ -1,6 +1,6 @@
 /*
     This file is part of "squirtbot", a simple Scala irc bot
-    Copyright (C) 2012 Toby Thain, toby@telegraphics.com.au
+    Copyright (C) 2012-2013 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -23,33 +23,38 @@ import concurrent.ops._
 import io.Source
 import util.parsing.json._  // TODO: Find better library. This is rather broken.
 import jm.oauth._
+import annotation.tailrec
 
-class TweetStreamBot(server:String, port:Int, chan:String, nick:String,
-                     oauth:OAuthCredentials)
-        extends Bot(server, port, chan, nick)
-{
-  override def onConnect {
-    val userStreamUrl = "https://userstream.twitter.com/2/user.json"
+import main.scala.bot1.IrcClientInterface
 
-    val req = new Requester(OAuth.HMAC_SHA1, oauth.consumerSecret, oauth.consumerKey,
-                            oauth.token, oauth.tokenSecret, OAuth.VERSION_1)
-    val stream = req.getResponse(userStreamUrl, Map()).getEntity.getContent
-    val source = Source.fromInputStream(stream, "UTF-8")
+class TweetStreamBot(oauth:OAuthCredentials) extends Bot {
+  val userStreamUrl = "https://userstream.twitter.com/2/user.json"
 
+  val req = new Requester(OAuth.HMAC_SHA1, oauth.consumerSecret, oauth.consumerKey,
+                          oauth.token, oauth.tokenSecret, OAuth.VERSION_1)
+  val stream = req.getResponse(userStreamUrl, Map()).getEntity.getContent
+
+  override def onConnect(client:IrcClientInterface, chan:String, quit:Signal) {
     spawn {
-      try {
-        val iter = source.getLines
-        while(!Quit.signaled && iter.hasNext) {
+      @tailrec
+      def nextLine(iter:Iterator[String]) {
+        if(!quit.signaled && iter.hasNext) {
           val line = iter.next
           JSON.parseRaw(line) match {
-            case Some(Tweet(t)) => t.sendTweet( sendMessage(chan, _) )
+            case Some(Tweet(t)) => t.sendTweet( client.privmsg(chan, _) )
             case _ => println("*** "+line)
           }
+          nextLine(iter)
         }
-      } catch {
-        case e:Exception => sendAction(chan, e.getMessage); e.printStackTrace
       }
-      Quit.signal
+
+      try {
+        nextLine(Source.fromInputStream(stream, "UTF-8").getLines)
+      } catch {
+        case e:Exception => client.privmsg(chan, e.getMessage); e.printStackTrace
+      }
+
+      quit.signal
     }
   }
 

@@ -1,6 +1,6 @@
 /*
     This file is part of "squirtbot", a simple Scala irc bot
-    Copyright (C) 2012 Toby Thain, toby@telegraphics.com.au
+    Copyright (C) 2012-2013 Toby Thain, toby@telegraphics.com.au
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -19,79 +19,27 @@
 
 package main.scala.squirt
 
-import java.lang.Thread
-import java.io.IOException
-import org.jibble.pircbot.PircBot
-import annotation.tailrec
+import main.scala.bot1.IrcClientInterface
 
-class Bot(server:String, port:Int, val chan:String, nick:String) extends PircBot {
-  protected object Quit extends Signal
+class Bot {
+  def onConnect(client:IrcClientInterface, chan:String, quit:Signal) { }
 
-  def run {
+  def run(client:IrcClientInterface, chan:String, pass:Option[String],
+          nick:String, userName:String, realName:String) {
+    val quit = new Signal
     //setVerbose(true)
-    setEncoding("UTF-8")
-    setMessageDelay(300)
-    setName(nick)
-    connect(server, port)
-    joinChannel(chan)
+    //setEncoding("UTF-8")
+    //setMessageDelay(0)
+    client.register(pass, nick, userName, realName)
+    client.join(chan)
     //sendMessage(chan, "hello.")
-    Quit.await // ---------------------
+    onConnect(client, chan, quit)
+    client.run {
+      msg => true
+    }
+    quit.signal
     println("Disconnect")
-    disconnect
-    dispose
+    client.disconnect
   }
-
-  def checkCommand(message:String) {
-    val Command = """^([-\w]+)\W*\s*(.*)$""".r
-
-    message match {
-      case Command(nickAddressed, command) if(nickAddressed == nick) =>
-        if(command == "quit") Quit.signal
-      case _ => ()
-    }
-  }
-
-  /*override def onPrivateMessage(sender:String, login:String,
-                                hostname:String, message:String) {
-    checkCommand(message)
-  }*/
-
-  override def onMessage(channel:String, sender:String, login:String,
-                         hostname:String, message:String) {
-    checkCommand(message)
-  }
-
-  override def onDisconnect() {
-    @tailrec
-    def reconn(n:Int) {
-      Thread.sleep(5000)
-      println("Attempting reconnect (%d)...".format(n))
-      ((try {
-          reconnect()
-          joinChannel(chan)
-          None
-        }
-        catch {
-          case e:IOException => println(e.getMessage); Some(true)
-          case _:Exception   => Some(false)
-        }
-      ):Option[Boolean]) match {
-        // This is a workaround for the RHS of the catch case not being
-        // considered tail position. Also, returning a lambda from the
-        // try catch doesn't work either (because it's not a direct self call?)
-        case Some(true) => reconn(n+1)
-        case Some(false) => Quit.signal
-        case None => ()
-      }
-    }
-    reconn(1)
-  }
-
-  override def onQuit(sourceNick:String, sourceLogin:String, sourceHostname:String, reason:String) {
-    if(sourceNick.equals(nick)) {
-      println("QUIT channel: %s".format(reason))
-      onDisconnect()
-    }
-  }
-
 }
+

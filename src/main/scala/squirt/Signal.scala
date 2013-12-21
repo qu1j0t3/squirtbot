@@ -22,13 +22,13 @@ package main.scala.squirt
 class Signal {
   private var flag = false
   def signal {
-    this.synchronized {
+    synchronized {
       flag = true
       notifyAll
     }
   }
   def await {
-    this.synchronized {
+    synchronized {
       while(!flag) wait
     }
   }
