@@ -19,6 +19,7 @@
 
 package main.scala.squirt
 
+import annotation.tailrec
 import util.Random
 import math._
 
@@ -37,7 +38,19 @@ object Main {
   def main(args:Array[String]) {
     // All freenode servers listen on ports 6665, 6666, 6667,
     // 6697 (SSL only), 7000 (SSL only), 7070 (SSL only), 8000, 8001 and 8002.
-    val client = IrcClient.connectSSL("irc.freenode.net", 6697)
-    (new TweetStreamBot(oauth)).run(client, "#botwar", None, randomNick, "bot", "squirtbot")
+
+    @tailrec
+    def stayConnected {
+      val client = IrcClient.connect("irc.freenode.net", 6667)
+      //(new TweetStreamBot("irc.freenode.net", 6667, "#ojXsKJOr", randomNick, oauthq)).run
+      (new TweetStreamBot(oauthq)).run(client, "#VO1aW93A", None, randomNick, "bot", "squirtbot")
+      client.disconnect
+
+      println("reconnecting in 5 secs...")
+      Thread.sleep(5000)
+      stayConnected
+    }
+
+    stayConnected
   }
 }

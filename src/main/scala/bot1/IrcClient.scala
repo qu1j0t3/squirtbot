@@ -65,6 +65,15 @@ class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface {
               moreReplies(lastFrom, lastCommand, lastParam)
           }
         case None => println("input stream ended")
+        /* e.g. server might disconnect us for flooding:
+Sending: PRIVMSG #VO1aW93A :02 @kim_tastiic    information
+    QUIT                    s-229             Excess Flood |
+   ERROR                          Closing Link: dsl-xx-xx-xx-xx.acanac.net (Excess Flood) |
+input stream ended
+Disconnect
+Sending: PRIVMSG #VO1aW93A :03........................................  http://ur1.ca/g8oqx
+Sending: PRIVMSG #VO1aW93A :Socket closed
+         */
       }
     }
 
@@ -75,7 +84,9 @@ class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface {
       catch {
         case e:Exception => println(e.getMessage)
       }
-      exit.signal
+      finally {
+        exit.signal
+      }
     }
     exit.await
   }

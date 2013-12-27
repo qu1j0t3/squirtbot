@@ -5,11 +5,11 @@ import concurrent.ops.spawn
 
 import java.net.Socket
 
-import main.scala.squirt.Signal
-
 class IrcSocketClient(sock:Socket) {
   val CR = 015
   val LF = 012
+
+  val INTERMESSAGE_SLEEP_MS = 200 // avoid flooding Freenode
   
   val oStream = sock.getOutputStream
   val iStream = sock.getInputStream
@@ -70,6 +70,8 @@ class IrcSocketClient(sock:Socket) {
       oStream.write(CR)
       oStream.write(LF)
       oStream.flush
+      Thread.sleep(INTERMESSAGE_SLEEP_MS)
+      // FIXME: Should decouple this from the calling thread with a producer/consumer queue
     }
   }
         
