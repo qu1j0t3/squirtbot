@@ -5,7 +5,7 @@ import concurrent.ops.spawn
 
 import java.net.Socket
 
-class IrcSocketClient(sock:Socket) {
+class IrcSocketClient(sock:Socket, charset:String) {
   val CR = 015
   val LF = 012
 
@@ -15,7 +15,7 @@ class IrcSocketClient(sock:Socket) {
   val iStream = sock.getInputStream
 
   def getReply:Option[String] = {
-    val message = Array.fill[Byte](512)(0)
+    val message = new Array[Byte](512)
 
     // This transition function recognises a CR/LF sequence.
     def nextState(state:Int, b:Int) = (state,b) match {
@@ -46,7 +46,7 @@ class IrcSocketClient(sock:Socket) {
           message(i) = b.toByte
           val state1 = nextState(state, b)
           if(state1 == 2) {
-            Some(new String(message, 0, i+1, "UTF-8"))
+            Some(new String(message, 0, i+1, charset))
           } else if((i-state1) > 510) { // message is over limit
             if(skipToCrLf(state1)) getByte(0, 0) else None
           } else {
@@ -66,7 +66,7 @@ class IrcSocketClient(sock:Socket) {
     oStream.synchronized {
       val message = cmd+" "+middle.mkString(" ")+trailing.map(" :"+).getOrElse("")
       println("Sending: "+message)
-      oStream.write(message.getBytes("UTF-8"))
+      oStream.write(message.getBytes(charset))
       oStream.write(CR)
       oStream.write(LF)
       oStream.flush

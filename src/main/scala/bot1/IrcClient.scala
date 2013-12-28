@@ -127,7 +127,7 @@ object IrcClient {
   val sslSockFactory = SSLSocketFactory.getDefault
   
   def connect(host:String, port:Int) =
-    new IrcClient(new IrcSocketClient(sockFactory.createSocket(host, port)))
+    new IrcClient(new IrcSocketClient(sockFactory.createSocket(host, port), "UTF-8"))
   def connectSSL(host:String, port:Int) =
-    new IrcClient(new IrcSocketClient(sslSockFactory.createSocket(host, port)))
+    new IrcClient(new IrcSocketClient(sslSockFactory.createSocket(host, port), "UTF-8"))
 }
