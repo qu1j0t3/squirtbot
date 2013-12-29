@@ -1,7 +1,9 @@
 import sbt._
 
-class Project(info: ProjectInfo) extends DefaultProject(info) {
+class Project(info: ProjectInfo) extends DefaultProject(info) with assembly.AssemblyBuilder {
   override def compileOptions:Seq[CompileOption] = List( /*Verbose,*/ Unchecked, Deprecation)
+
+  override def packageOptions = Seq(MainClass("main.scala.squirt.Main"))
 
   //val scalatools = "scala-tools" at "http://scala-tools.org/repo-snapshots"
 
@@ -11,7 +13,7 @@ class Project(info: ProjectInfo) extends DefaultProject(info) {
   //val jodatime = "joda-time" % "joda-time" % "1.6"
   override def libraryDependencies = Set(
     // jm.oauth depends on this:
-    "org.apache.httpcomponents" % "httpclient" % "4.2.3",
-    "org.apache.httpcomponents" % "fluent-hc"  % "4.2.3"
+    "org.apache.httpcomponents" % "httpclient" % "4.3.1",
+    "org.apache.httpcomponents" % "fluent-hc"  % "4.3.1"
   ) ++ super.libraryDependencies
 }
