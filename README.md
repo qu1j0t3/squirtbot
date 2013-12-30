@@ -60,3 +60,11 @@ create a symlink to this directory named 'project', e.g.:
     [info] == run ==
     [info] Running main.scala.squirt.Main
     ...
+
+## Installing an upstart service in Ubuntu ##
+
+    # chown root:root upstart/squirtbot.conf
+    # mv upstart/squirtbot.conf /etc/init
+
+Start the bot using
+    $ initctl start squirtbot
