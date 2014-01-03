@@ -17,8 +17,8 @@ object Main {
   def main(args:Array[String]) {
     val myNick = randomNick
     val chan = "#VO1aW93A"
-    //val client = IrcClient.connectSSL("irc.freenode.net", SSL_PORT)
-    val client = IrcClient.connect("irc.freenode.net", PLAINTEXT_PORT)
+    //val client = IrcClient.connectSSL("irc.freenode.net", SSL_PORT, "UTF-8")
+    val client = IrcClient.connect("irc.freenode.net", PLAINTEXT_PORT, "UTF-8")
 
     // connection level ops
     client.register(None, myNick, "bot", "ScalaBot1")
@@ -47,7 +47,7 @@ object Main {
         case _ => true
       }
     }
-    
+
     client.disconnect
   }
 }

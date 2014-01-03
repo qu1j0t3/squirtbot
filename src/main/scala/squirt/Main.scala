@@ -41,9 +41,9 @@ object Main {
 
     @tailrec
     def stayConnected {
-      val client = IrcClient.connect("irc.freenode.net", 6667)
+      val client = IrcClient.connectSSL("irc.freenode.net", 6697, "UTF-8")
       //(new TweetStreamBot("irc.freenode.net", 6667, "#ojXsKJOr", randomNick, oauthq)).run
-      (new TweetStreamBot(oauthq)).run(client, "#VO1aW93A", None, randomNick, "bot", "squirtbot")
+      (new TweetStreamBot(oauth)).run(client, "#VO1aW93A", None, randomNick, "bot", "squirtbot")
       client.disconnect
 
       println("reconnecting in 5 secs...")
