@@ -117,12 +117,23 @@ Sending: PRIVMSG #VO1aW93A :Socket closed
   def privmsg(target:String, msg:String) {
     command("PRIVMSG", List(target), Some(msg))
   }
+
+  def action(target:String, action:String) {
+    privmsg(target, "\001ACTION %s\001".format(action))
+  }
   
   // Just disconnect. We might do this if the server has disconnected us.
   def disconnect { sockClient.disconnect }
 }
 
 object IrcClient {
+  val FREENODE = "irc.freenode.net"
+  
+  // All freenode servers listen on ports 6665, 6666, 6667,
+  // 6697 (SSL only), 7000 (SSL only), 7070 (SSL only), 8000, 8001 and 8002.
+  val PLAINTEXT_PORT = 6667
+  val SSL_PORT = 6697
+  
   val sockFactory = SocketFactory.getDefault
   val sslSockFactory = SSLSocketFactory.getDefault
   

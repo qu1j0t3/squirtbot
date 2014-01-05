@@ -56,6 +56,8 @@ class Tweet(val text:String,
     }
     send(highlightUrl("."*40 + "  " + Ur1Ca.shortenUrl(url).getOrElse(url)))
   }
+  
+  def description:String = "tweet by @"+user.screenName
 
   def sendTweet(send:String=>Unit) {
     format(send, List("@"+user.screenName), text)

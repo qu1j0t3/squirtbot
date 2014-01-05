@@ -9,7 +9,7 @@ class IrcSocketClient(sock:Socket, charset:String) {
   val CR = 015
   val LF = 012
 
-  val INTERMESSAGE_SLEEP_MS = 200 // avoid flooding Freenode
+  val INTERMESSAGE_SLEEP_MS = 250 // avoid flooding Freenode
   
   val oStream = sock.getOutputStream
   val iStream = sock.getInputStream

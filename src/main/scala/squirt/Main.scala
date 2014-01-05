@@ -19,9 +19,12 @@
 
 package main.scala.squirt
 
+import concurrent.ops._
 import annotation.tailrec
 import util.Random
 import math._
+
+import org.apache.commons.collections.map.LRUMap
 
 import main.scala.bot1.IrcClient
 
@@ -36,21 +39,37 @@ object Main {
                                "your access token secret")
 
   def main(args:Array[String]) {
-    // All freenode servers listen on ports 6665, 6666, 6667,
-    // 6697 (SSL only), 7000 (SSL only), 7070 (SSL only), 8000, 8001 and 8002.
 
-    @tailrec
-    def stayConnected {
-      val client = IrcClient.connectSSL("irc.freenode.net", 6697, "UTF-8")
-      //(new TweetStreamBot("irc.freenode.net", 6667, "#ojXsKJOr", randomNick, oauthq)).run
-      (new TweetStreamBot(oauth)).run(client, "#VO1aW93A", None, randomNick, "bot", "squirtbot")
-      client.disconnect
-
-      println("reconnecting in 5 secs...")
-      Thread.sleep(5000)
-      stayConnected
+    // Remember the last 100 tweets so that (one or more) bots don't repeat
+    // the same ones in the same channel.
+    val shouldCopy: String => Tweet => Boolean = {
+      val cache = new LRUMap(100)  // mutable, but at least it's hidden in the closure.
+      chan => {
+        t => cache.synchronized {
+          val key = chan+"/"+t.id
+          !(cache.containsKey(key) || { cache.put(key, ()); false })
+        }
+      }
     }
 
-    stayConnected
+    @tailrec
+    def stayConnected(chans:List[String], nick:String, oauth:OAuthCredentials) {
+      import IrcClient._
+      try {
+        val client = connectSSL(FREENODE, SSL_PORT, "UTF-8")
+        val bot = new TweetStreamBot(oauth, shouldCopy)
+        bot.run(client, chans, None, nick, "squirtbot", bot.toString)
+        client.disconnect
+      }
+      catch {
+        case e:Exception => println(e.getMessage)
+      }
+      println("reconnecting in 5 secs...")
+      Thread.sleep(5000)
+      stayConnected(chans, nick, oauth)
+    }
+
+    // FreeNode will only use 16 characters of a nick
+    spawn { stayConnected(List("#botwar"), "TweetStuff", oauth) }
   }
 }

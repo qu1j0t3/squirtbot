@@ -21,19 +21,19 @@ package main.scala.squirt
 
 import main.scala.bot1.IrcClientInterface
 
-class Bot {
-  def onConnect(client:IrcClientInterface, chan:String, quit:Signal) { }
+abstract class Bot {
+  def onConnect(client:IrcClientInterface, chans:List[String], quit:Signal)
 
-  def run(client:IrcClientInterface, chan:String, pass:Option[String],
+  def run(client:IrcClientInterface, chans:List[String], pass:Option[String],
           nick:String, userName:String, realName:String) {
     val quit = new Signal
     //setVerbose(true)
     //setEncoding("UTF-8")
     //setMessageDelay(0)
     client.register(pass, nick, userName, realName)
-    client.join(chan)
+    chans.foreach(client.join(_))
     //sendMessage(chan, "hello.")
-    onConnect(client, chan, quit)
+    onConnect(client, chans, quit)
     client.run {
       msg => true
     }

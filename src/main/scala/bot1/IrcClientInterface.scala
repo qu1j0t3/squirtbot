@@ -11,5 +11,6 @@ trait IrcClientInterface {
   def part(chan:String, msg:Option[String])
   def quit(msg:Option[String])
   def privmsg(target:String, msg:String)
+  def action(target:String, action:String)
   def disconnect
 }

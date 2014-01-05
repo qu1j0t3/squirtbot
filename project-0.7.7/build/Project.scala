@@ -14,6 +14,7 @@ class Project(info: ProjectInfo) extends DefaultProject(info) with assembly.Asse
   override def libraryDependencies = Set(
     // jm.oauth depends on this:
     "org.apache.httpcomponents" % "httpclient" % "4.3.1",
-    "org.apache.httpcomponents" % "fluent-hc"  % "4.3.1"
+    "org.apache.httpcomponents" % "fluent-hc"  % "4.3.1",
+    "commons-collections" % "commons-collections" % "3.2.1"
   ) ++ super.libraryDependencies
 }

@@ -23,6 +23,9 @@ class Retweet(text:String, id:String, user:TwitterUser,
               val retweet:Tweet)
         extends Tweet(text, id, user)
 {
+  override def description:String =
+    "retweet of @%s by @%s".format(retweet.user.screenName, user.screenName)
+  
   override def sendTweet(send:String=>Unit) {
     format(send,
            List("@"+retweet.user.screenName,
