@@ -22,10 +22,7 @@ package main.scala.squirt
 import util.parsing.json._
 import org.jibble.pircbot.Colors._
 
-class Tweet(val text:String,
-            val id:String,
-            val user:TwitterUser)
-{
+class Tweet(val text:String, val id:String, val user:TwitterUser) {
   def url:String = "http://twitter.com/" + user.screenName + "/status/" + id
 
   val indentCols = 17
@@ -64,7 +61,7 @@ class Tweet(val text:String,
   }
 }
 
-object Tweet {
+object ParseTweet {
   // Note: Parameter type JSONObject is already narrowing the match.
   //       (see http://www.artima.com/pins1ed/extractors.html )
   def unapply(m:JSONObject):Option[Tweet] =
@@ -78,8 +75,8 @@ object Tweet {
             retweetedStatus) =>
         Some(
           retweetedStatus match {
-            case Some(Tweet(rt)) => new Retweet(text, id, user, rt)
-            case _               => new Tweet(text, id, user)
+            case Some(ParseTweet(rt)) => new Retweet(text, id, user, rt)
+            case _                    => new Tweet(text, id, user)
           } )
       case _ =>
         None  // don't recognise this as a tweet

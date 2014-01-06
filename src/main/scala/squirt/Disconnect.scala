@@ -19,16 +19,23 @@
 
 package main.scala.squirt
 
-class Retweet(text:String, id:String, user:TwitterUser, val retweet:Tweet)
-        extends Tweet(text, id, user) {
-  override def description:String =
-    "retweet of @%s by @%s".format(retweet.user.screenName, user.screenName)
-  
-  override def sendTweet(send:String=>Unit) {
-    format(send,
-           List("@"+retweet.user.screenName,
-                " retweeted by",
-                " @"+user.screenName),
-           retweet.text)
-  }
+import util.parsing.json._
+
+// FIXME: These should be optional fields; we shouldn't miss a Disconnect
+//        just because any are missing.
+case class Disconnect(code:String, streamName:String, reason:String)
+
+object ParseDisconnect {
+  def unapply(m:JSONObject):Option[Disconnect] =
+    m.obj.get("disconnect") match { // Oh, stdlib JSON; I don't *like* you.
+      case Some(d:JSONObject) =>
+        (d.obj.get("code"), d.obj.get("stream_name"), d.obj.get("reason")) match {
+          case (Some(c:String),Some(s:String),Some(r:String)) =>
+            Some(Disconnect(c, s, r))
+          case _ =>
+            None
+        }
+      case _ =>
+        None
+    }
 }

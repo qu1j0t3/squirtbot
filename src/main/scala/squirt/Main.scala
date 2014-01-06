@@ -24,8 +24,6 @@ import annotation.tailrec
 import util.Random
 import math._
 
-import org.apache.commons.collections.map.LRUMap
-
 import main.scala.bot1.IrcClient
 
 object Main {
@@ -37,6 +35,8 @@ object Main {
                                "your consumer secret",
                                "your access token",
                                "your access token secret")
+
+  def main(args:Array[String]) {
 
   def main(args:Array[String]) {
 

@@ -19,16 +19,23 @@
 
 package main.scala.squirt
 
-class Retweet(text:String, id:String, user:TwitterUser, val retweet:Tweet)
-        extends Tweet(text, id, user) {
-  override def description:String =
-    "retweet of @%s by @%s".format(retweet.user.screenName, user.screenName)
-  
-  override def sendTweet(send:String=>Unit) {
-    format(send,
-           List("@"+retweet.user.screenName,
-                " retweeted by",
-                " @"+user.screenName),
-           retweet.text)
-  }
+import util.parsing.json._
+
+case class Delete(id:String, userId:String)
+
+object ParseDelete {
+  def unapply(m:JSONObject):Option[Delete] =
+    m.obj.get("delete") match {
+      case Some(d:JSONObject) =>
+        d.obj.get("status") match {
+          case Some(s:JSONObject) =>
+            (s.obj.get("id_str"), s.obj.get("user_id_str")) match {
+              case (Some(id:String),Some(userId:String)) =>
+                Some(Delete(id, userId))
+              case _ => None
+            }
+          case _ => None
+        }
+      case _ => None
+    }
 }

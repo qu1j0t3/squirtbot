@@ -27,37 +27,55 @@ import annotation.tailrec
 
 import main.scala.bot1.IrcClientInterface
 
-class TweetStreamBot(oauth: OAuthCredentials, shouldCopy: String => Tweet => Boolean)
+class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
         extends Bot {
   val userStreamUrl = "https://userstream.twitter.com/2/user.json"
 
-  val req = new Requester(OAuth.HMAC_SHA1, oauth.consumerSecret, oauth.consumerKey,
-                          oauth.token, oauth.tokenSecret, OAuth.VERSION_1)
-  val stream = req.getResponse(userStreamUrl, Map()).getEntity.getContent
-
   override def onConnect(client:IrcClientInterface, chans:List[String], quit:Signal) {
     spawn {
+      val req = new Requester(OAuth.HMAC_SHA1, oauth.consumerSecret, oauth.consumerKey,
+                              oauth.token, oauth.tokenSecret, OAuth.VERSION_1)
+      val stream = req.getResponse(userStreamUrl, Map()).getEntity.getContent
+
       @tailrec
       def nextLine(iter:Iterator[String]) {
         if(!quit.signaled && iter.hasNext) {
           val line = iter.next
-          JSON.parseRaw(line) match {
-            case Some(Tweet(t)) =>
+          val continue = JSON.parseRaw(line) match {
+            case Some(ParseTweet(t)) =>
               // synchronize on the channel name, so that multiple bots
               // configured in this program won't interrupt each other.
               // careful: will only work as expected if chan is an
               // intern'd String (e.g. a literal); see http://stackoverflow.com/a/9698305
-              chans.foreach { c =>
+              chans.foreach( c =>
                 c.synchronized {
-                  if(shouldCopy(c)(t))
+                  // has the tweet been seen in the same channel recently?
+                  if(!cache.lookupOrPut(c, t))
                     t.sendTweet( client.privmsg(c, _) )
                   else
                     client.action(c, "saw that %s too".format(t.description))
-                }
-              }
-            case _ => println("*** "+line)
+                } )
+              true
+            case Some(ParseDelete(d)) =>
+              chans.foreach( c =>
+                  cache.getTweetById(d.id).foreach( t => {
+                    val abbrev = t.text.split(' ').take(8).mkString(" ")
+                    c.synchronized {
+                      client.action(c, "@%s deleted '%s'"
+                                       .format(t.user.screenName,
+                                               if(abbrev != t.text) abbrev+"..." else abbrev))
+                    } } ) )
+              true
+            case Some(ParseDisconnect(d)) =>
+              println("whoa, dude. Twitter disconnected us (%s, %s, %s)".format(d.code, d.streamName, d.reason))
+              false
+            case _ =>
+              println("*** "+line)
+              true
           }
-          nextLine(iter)
+
+          if(continue)
+            nextLine(iter)
         }
       }
 
