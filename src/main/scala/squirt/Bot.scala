@@ -27,19 +27,15 @@ abstract class Bot {
   def run(client:IrcClientInterface, chans:List[String], pass:Option[String],
           nick:String, userName:String, realName:String) {
     val quit = new Signal
-    //setVerbose(true)
-    //setEncoding("UTF-8")
-    //setMessageDelay(0)
+    
     client.register(pass, nick, userName, realName)
     chans.foreach(client.join(_))
-    //sendMessage(chan, "hello.")
     onConnect(client, chans, quit)
-    client.run {
-      msg => true
-    }
-    quit.signal
+    client.run { msg => true }
+
     println("Disconnect")
     client.disconnect
+    quit.signal
   }
 }
 

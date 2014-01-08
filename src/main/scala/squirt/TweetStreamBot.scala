@@ -81,7 +81,8 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
 
       try {
         nextLine(Source.fromInputStream(stream, "UTF-8").getLines)
-      } catch {
+      }
+      catch {
         case e:Exception =>
           chans.foreach(client.action(_, "saw an exception: "+e.getMessage))
           e.printStackTrace

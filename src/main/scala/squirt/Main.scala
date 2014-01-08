@@ -37,29 +37,20 @@ object Main {
                                "your access token secret")
 
   def main(args:Array[String]) {
-
-  def main(args:Array[String]) {
-
-    // Remember the last 100 tweets so that (one or more) bots don't repeat
-    // the same ones in the same channel.
-    val shouldCopy: String => Tweet => Boolean = {
-      val cache = new LRUMap(100)  // mutable, but at least it's hidden in the closure.
-      chan => {
-        t => cache.synchronized {
-          val key = chan+"/"+t.id
-          !(cache.containsKey(key) || { cache.put(key, ()); false })
-        }
-      }
-    }
+    val cache = new TweetCache
 
     @tailrec
     def stayConnected(chans:List[String], nick:String, oauth:OAuthCredentials) {
       import IrcClient._
       try {
         val client = connectSSL(FREENODE, SSL_PORT, "UTF-8")
-        val bot = new TweetStreamBot(oauth, shouldCopy)
-        bot.run(client, chans, None, nick, "squirtbot", bot.toString)
-        client.disconnect
+        val bot = new TweetStreamBot(oauth, cache)
+        try {
+          bot.run(client, chans, None, nick, "squirtbot", bot.toString)
+        }
+        finally {
+          client.disconnect
+        }
       }
       catch {
         case e:Exception => println(e.getMessage)
