@@ -21,7 +21,7 @@ package main.scala.squirt
 
 import concurrent.ops._
 import io.Source
-import util.parsing.json._  // TODO: Find better library. This is rather broken.
+import argonaut.Parse
 import jm.oauth._
 import annotation.tailrec
 
@@ -41,8 +41,8 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
       def nextLine(iter:Iterator[String]) {
         if(!quit.signaled && iter.hasNext) {
           val line = iter.next
-          val continue = JSON.parseRaw(line) match {
-            case Some(ParseTweet(t)) =>
+          val continue = Parse.parseOption(line).map {
+            case ParseTweet(t) =>
               // synchronize on the channel name, so that multiple bots
               // configured in this program won't interrupt each other.
               // careful: will only work as expected if chan is an
@@ -56,23 +56,23 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
                     client.action(c, "saw that %s too".format(t.description))
                 } )
               true
-            case Some(ParseDelete(d)) =>
+            case ParseDelete(d) =>
               chans.foreach( c =>
-                  cache.getTweetById(d.id).foreach( t => {
-                    val abbrev = t.text.split(' ').take(8).mkString(" ")
-                    c.synchronized {
-                      client.action(c, "@%s deleted '%s'"
-                                       .format(t.user.screenName,
-                                               if(abbrev != t.text) abbrev+"..." else abbrev))
-                    } } ) )
+                cache.getTweetById(d.id).foreach( t => {
+                  val abbrev = t.text.split(' ').take(8).mkString(" ")
+                  c.synchronized {
+                    client.action(c, "@%s deleted '%s'"
+                                     .format(t.user.screenName,
+                                             if(abbrev != t.text) abbrev+"..." else abbrev))
+                  } } ) )
               true
-            case Some(ParseDisconnect(d)) =>
+            case ParseDisconnect(d) =>
               println("whoa, dude. Twitter disconnected us (%s, %s, %s)".format(d.code, d.streamName, d.reason))
               false
             case _ =>
               println("*** "+line)
               true
-          }
+          }.getOrElse(true)
 
           if(continue)
             nextLine(iter)

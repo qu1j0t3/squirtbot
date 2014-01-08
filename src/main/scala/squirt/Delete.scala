@@ -19,23 +19,18 @@
 
 package main.scala.squirt
 
-import util.parsing.json._
+import argonaut._
 
 case class Delete(id:String, userId:String)
 
 object ParseDelete {
-  def unapply(m:JSONObject):Option[Delete] =
-    m.obj.get("delete") match {
-      case Some(d:JSONObject) =>
-        d.obj.get("status") match {
-          case Some(s:JSONObject) =>
-            (s.obj.get("id_str"), s.obj.get("user_id_str")) match {
-              case (Some(id:String),Some(userId:String)) =>
-                Some(Delete(id, userId))
-              case _ => None
-            }
-          case _ => None
-        }
-      case _ => None
-    }
+  def unapply(j:Json):Option[Delete] =
+    for {
+      delete  <- j -| "delete"
+      status  <- delete -| "status"
+      idJ     <- status -| "id_str"
+      userIdJ <- status -| "user_id_str"
+      id      <- idJ.string
+      userId  <- userIdJ.string
+    } yield Delete(id, userId)
 }

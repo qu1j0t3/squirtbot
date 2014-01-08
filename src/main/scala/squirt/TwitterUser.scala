@@ -19,15 +19,18 @@
 
 package main.scala.squirt
 
-import util.parsing.json._
+import argonaut._
 
-class TwitterUser(val screenName:String, val name:String)
+case class TwitterUser(id:String, screenName:String, name:String)
 
-object TwitterUser {
-  def unapply(u:JSONObject):Option[TwitterUser] =
-    (u.obj.get("screen_name"),u.obj.get("name")) match {
-      case (Some(screenName:String),Some(name:String)) =>
-        Some(new TwitterUser(screenName, name))
-      case _ => None
-    }
+object ParseTwitterUser {
+  def unapply(j:Json):Option[TwitterUser] =
+    for {
+      idJ         <- j -| "id_str"
+      screenNameJ <- j -| "screen_name"
+      nameJ       <- j -| "name"
+      id          <- idJ.string
+      screenName  <- screenNameJ.string
+      name        <- nameJ.string
+    } yield TwitterUser(id, screenName, name)
 }

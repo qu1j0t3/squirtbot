@@ -19,23 +19,21 @@
 
 package main.scala.squirt
 
-import util.parsing.json._
+import argonaut._
 
 // FIXME: These should be optional fields; we shouldn't miss a Disconnect
 //        just because any are missing.
 case class Disconnect(code:String, streamName:String, reason:String)
 
 object ParseDisconnect {
-  def unapply(m:JSONObject):Option[Disconnect] =
-    m.obj.get("disconnect") match { // Oh, stdlib JSON; I don't *like* you.
-      case Some(d:JSONObject) =>
-        (d.obj.get("code"), d.obj.get("stream_name"), d.obj.get("reason")) match {
-          case (Some(c:String),Some(s:String),Some(r:String)) =>
-            Some(Disconnect(c, s, r))
-          case _ =>
-            None
-        }
-      case _ =>
-        None
-    }
+  def unapply(j:Json):Option[Disconnect] =
+    for {
+      disconnect  <- j -| "disconnect"
+      codeJ       <- disconnect -| "code"
+      streamNameJ <- disconnect -| "stream_name"
+      reasonJ     <- disconnect -| "reason"
+      code        <- codeJ.string
+      streamName  <- streamNameJ.string
+      reason      <- reasonJ.string
+    } yield Disconnect(code, streamName, reason)
 }

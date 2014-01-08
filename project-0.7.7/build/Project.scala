@@ -15,6 +15,7 @@ class Project(info: ProjectInfo) extends DefaultProject(info) with assembly.Asse
     // jm.oauth depends on this:
     "org.apache.httpcomponents" % "httpclient" % "4.3.1",
     "org.apache.httpcomponents" % "fluent-hc"  % "4.3.1",
-    "commons-collections" % "commons-collections" % "3.2.1"
+    "commons-collections" % "commons-collections" % "3.2.1",
+    "io.argonaut" %% "argonaut" % "6.0.1"
   ) ++ super.libraryDependencies
 }
