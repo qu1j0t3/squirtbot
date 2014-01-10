@@ -50,21 +50,25 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
               chans.foreach( c =>
                 c.synchronized {
                   // has the tweet been seen in the same channel recently?
-                  if(!cache.lookupOrPut(c, t))
-                    t.sendTweet( client.privmsg(c, _) )
-                  else
+                  if(!cache.lookupOrPut(c, t)) {
+                    t.retweetOf match {
+                      case Some(rt) if cache.lookup(c, rt) =>
+                        client.action(c, "@%s retweeted @%s: '%s'"
+                                         .format(t.user.screenName, rt.user.screenName, rt.abbreviated))
+                      case _ =>
+                        t.sendTweet( client.privmsg(c, _) )
+                    }
+                  } else {
                     client.action(c, "saw that %s too".format(t.description))
+                  }
                 } )
               true
             case ParseDelete(d) =>
               chans.foreach( c =>
-                cache.getTweetById(d.id).foreach( t => {
-                  val abbrev = t.text.split(' ').take(8).mkString(" ")
+                cache.getTweetById(d.id).foreach( t =>
                   c.synchronized {
-                    client.action(c, "@%s deleted '%s'"
-                                     .format(t.user.screenName,
-                                             if(abbrev != t.text) abbrev+"..." else abbrev))
-                  } } ) )
+                    client.action(c, "@%s deleted '%s'".format(t.user.screenName, t.abbreviated))
+                  } ) )
               true
             case ParseDisconnect(d) =>
               println("whoa, dude. Twitter disconnected us (%s, %s, %s)".format(d.code, d.streamName, d.reason))

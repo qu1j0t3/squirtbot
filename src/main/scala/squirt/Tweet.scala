@@ -22,7 +22,7 @@ package main.scala.squirt
 import argonaut._
 import org.jibble.pircbot.Colors._
 
-class Tweet(val text:String, val id:String, val user:TwitterUser) {
+case class Tweet(text:String, id:String, user:TwitterUser, retweetOf:Option[Tweet]) {
   def url:String = "http://twitter.com/" + user.screenName + "/status/" + id
 
   val indentCols = 17
@@ -54,10 +54,23 @@ class Tweet(val text:String, val id:String, val user:TwitterUser) {
     send(highlightUrl("."*40 + "  " + Ur1Ca.shortenUrl(url).getOrElse(url)))
   }
   
-  def description:String = "tweet by @"+user.screenName
+  def description:String =
+    retweetOf.map(rt => "retweet of @%s by @%s".format(rt.user.screenName, user.screenName))
+             .getOrElse("tweet by @"+user.screenName)
+
+  def descriptionList:List[String] =
+    retweetOf.map(rt => List("@"+rt.user.screenName,
+                             " retweeted by",
+                             " @"+user.screenName))
+             .getOrElse(List("@"+user.screenName))
+
+  def abbreviated = {
+    val abbrev = text.split(' ').take(8).mkString(" ")
+    if(abbrev != text) abbrev+"..." else abbrev
+  }
 
   def sendTweet(send:String=>Unit) {
-    format(send, List("@"+user.screenName), text)
+    format(send, descriptionList, text)
   }
 }
 
@@ -72,7 +85,7 @@ object ParseTweet {
       user  <- ParseTwitterUser.unapply(userJ)
     }
     yield (j -| "retweeted_status") match {
-      case Some(ParseTweet(rt)) => new Retweet(text, id, user, rt)
-      case _                    => new Tweet(text, id, user)
+      case Some(ParseTweet(rt)) => Tweet(text, id, user, Some(rt))
+      case _                    => Tweet(text, id, user, None)
     }
 }
