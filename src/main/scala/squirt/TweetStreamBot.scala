@@ -52,7 +52,7 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
                   // has the tweet been seen in the same channel recently?
                   if(!cache.lookupOrPut(c, t)) {
                     t.retweetOf match {
-                      case Some(rt) if cache.lookup(c, rt) =>
+                      case Some(rt) if cache.lookupOrPut(c, rt) =>
                         client.action(c, "@%s retweeted @%s: '%s'"
                                          .format(t.user.screenName, rt.user.screenName, rt.abbreviated))
                       case _ =>

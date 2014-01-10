@@ -18,9 +18,6 @@ class TweetCache {
       }
     }
 
-  def lookup(chan: String, t: Tweet): Boolean =
-    chanCache.synchronized { chanCache.containsKey(chan+"/"+t.id) }
-
   def getTweetById(id: String): Option[Tweet] =
     tweetCache.synchronized {
       tweetCache.get(id) match {
