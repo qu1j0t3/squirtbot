@@ -30,7 +30,7 @@ object ParseFavorite {
       event   <- eventJ.string if event == "favorite"
       sourceJ <- j -| "source"
       source  <- ParseTwitterUser.unapply(sourceJ)
-      targetJ <- j -| "target"
+      targetJ <- j -| "target_object"
       tweet   <- ParseTweet.unapply(targetJ)
     } yield Favorite(source, tweet)
 }
