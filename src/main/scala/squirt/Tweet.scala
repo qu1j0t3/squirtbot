@@ -70,7 +70,9 @@ case class Tweet(text:String, id:String, user:TwitterUser, retweetOf:Option[Twee
   }
 
   def sendTweet(send:String=>Unit) {
-    format(send, descriptionList, text)
+    // If it's a retweet, send full text of original tweet,
+    // otherwise full text of this tweet
+    format(send, descriptionList, retweetOf.map(_.text).getOrElse(text))
   }
 }
 
