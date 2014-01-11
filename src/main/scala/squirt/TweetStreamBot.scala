@@ -70,6 +70,12 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
                     client.action(c, "@%s deleted '%s'".format(t.user.screenName, t.abbreviated))
                   } ) )
               true
+            case ParseFavorite(f) =>
+              chans.foreach( c =>
+                c.synchronized {
+                  client.action(c, "@%s favourited '%s'".format(f.source.screenName, f.target.abbreviated))
+                } )
+              true
             case ParseDisconnect(d) =>
               println("whoa, dude. Twitter disconnected us (%s, %s, %s)".format(d.code, d.streamName, d.reason))
               false
