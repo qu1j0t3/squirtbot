@@ -55,8 +55,8 @@ object Main {
       catch {
         case e:Exception => println(e.getMessage)
       }
-      println("reconnecting in 5 secs...")
-      Thread.sleep(5000)
+      println("reconnecting in 30 secs...")
+      Thread.sleep(30000)
       stayConnected(chans, nick, oauth)
     }
 
