@@ -16,6 +16,8 @@ class Project(info: ProjectInfo) extends DefaultProject(info) with assembly.Asse
     "org.apache.httpcomponents" % "httpclient" % "4.3.2",
     "org.apache.httpcomponents" % "fluent-hc"  % "4.3.2",
     "commons-collections" % "commons-collections" % "3.2.1",
-    "io.argonaut" %% "argonaut" % "6.0.2"
+    "io.argonaut" %% "argonaut" % "6.0.2",
+    "ch.qos.logback" % "logback-classic" % "1.1.1",
+    "org.clapper" % "grizzled-slf4j_2.9.2" % "0.6.10"
   ) ++ super.libraryDependencies
 }

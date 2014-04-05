@@ -27,8 +27,10 @@ import annotation.tailrec
 
 import main.scala.bot1.IrcClientInterface
 
+import grizzled.slf4j.Logging
+
 class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
-        extends Bot {
+        extends Bot with Logging {
   val userStreamUrl = "https://userstream.twitter.com/2/user.json"
 
   case class TweetIrcTranscriber(client:IrcClientInterface, chans:List[String])
@@ -84,7 +86,7 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
                                 .format(d.code, d.streamName, d.reason))
               false
             case _ =>
-              println("*** "+line)
+              debug("*** "+line)
               true
           }.getOrElse(true)
 

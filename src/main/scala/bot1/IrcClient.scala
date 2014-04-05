@@ -1,12 +1,13 @@
 package main.scala.bot1
 
 import annotation.tailrec
-import concurrent.ops.spawn
 
 import javax.net.SocketFactory
 import javax.net.ssl.SSLSocketFactory
 
-class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface {
+import grizzled.slf4j.Logging
+
+class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface with Logging {
 
   val MircCode = """\002|(\003\d\d?(,\d\d?)?)|\017|\026|\037""".r
   def stripMircColours(s:String) = MircCode.replaceAllIn(s, "")
@@ -16,22 +17,23 @@ class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface {
     def moreReplies(lastFrom:Option[String],
                     lastCommand:Option[String],
                     lastParam:Option[String]) {
+
       def logMessage(msg:IrcMessage) {
-          val dupe = lastFrom == msg.serverOrNick &&
-                     lastCommand.exists(msg.commandOrResponse ==) &&
-                     lastParam == msg.params.headOption
-          // For clarity, don't print the 'from' field or first parameter
-          // if they are unchanged AND the command is unchanged.
-          val printFrom = if(dupe) "" else msg.serverOrNick.getOrElse("")
-          msg.params match {
-            case firstParam :: rest => // at least one parameter
-              println("%8s %24s %24s | %s".format(msg.commandOrResponse,
-                                                  printFrom,
-                                                  if(dupe) "" else firstParam,
-                                                  stripMircColours(rest.mkString(" "))))
-            case Nil => // no parameters
-              println("%8s %24s".format(msg.commandOrResponse, printFrom))
-          }
+        val dupe = lastFrom == msg.serverOrNick &&
+                   lastCommand.exists(msg.commandOrResponse ==) &&
+                   lastParam == msg.params.headOption
+        // For clarity, don't print the 'from' field or first parameter
+        // if they are unchanged AND the command is unchanged.
+        val printFrom = if(dupe) "" else msg.serverOrNick.getOrElse("")
+        msg.params match {
+          case firstParam :: rest => // at least one parameter
+            info("%8s %24s %24s | %s".format(msg.commandOrResponse,
+                                             printFrom,
+                                             if(dupe) "" else firstParam,
+                                             stripMircColours(rest.mkString(" "))))
+          case Nil => // no parameters
+            info("%8s %24s".format(msg.commandOrResponse, printFrom))
+        }
       }
 
       sockClient.getReply match {
@@ -57,10 +59,11 @@ class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface {
                             Option(msg.commandOrResponse),
                             msg.params.headOption)
             case _ =>
-              println("malformed message? "+reply)
+              warn("malformed message? "+reply)
               moreReplies(lastFrom, lastCommand, lastParam)
           }
-        case None => println("input stream ended")
+        case None =>
+          warn("input stream ended")
         /* e.g. server might disconnect us for flooding:
 Sending: PRIVMSG #VO1aW93A :02 @kim_tastiic    information
     QUIT                    s-229             Excess Flood |

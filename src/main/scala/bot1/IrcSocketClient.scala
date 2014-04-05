@@ -5,7 +5,9 @@ import concurrent.ops.spawn
 
 import java.net.Socket
 
-class IrcSocketClient(sock:Socket, charset:String) {
+import grizzled.slf4j.Logging
+
+class IrcSocketClient(sock:Socket, charset:String) extends Logging {
   val CR = 015
   val LF = 012
 
@@ -65,7 +67,7 @@ class IrcSocketClient(sock:Socket, charset:String) {
   def command(cmd:String, middle:Seq[String], trailing:Option[String]) {
     oStream.synchronized {
       val message = cmd+" "+middle.mkString(" ")+trailing.map(" :"+).getOrElse("")
-      println("Sending: "+message)
+      debug("Sending: "+message)
       oStream.write(message.getBytes(charset))
       oStream.write(CR)
       oStream.write(LF)

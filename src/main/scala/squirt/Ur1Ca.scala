@@ -22,7 +22,9 @@ package main.scala.squirt
 import io.Source
 import org.apache.http.client.fluent._
 
-object Ur1Ca extends UrlShortener {
+import grizzled.slf4j.Logging
+
+object Ur1Ca extends UrlShortener with Logging {
   def shortenUrl(longUrl:String):Option[String] = {
     // Parsing HTML with a Regex is never a good idea! I defend it here
     // because we are dealing with a single specific input document.
@@ -42,7 +44,7 @@ object Ur1Ca extends UrlShortener {
         None
     }
     catch {
-      case e:Exception => println(e.getMessage); None
+      case e:Exception => error(e.getMessage); None
     }
   }
 }

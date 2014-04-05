@@ -30,13 +30,13 @@ abstract class Bot {
     client.register(pass, nick, userName, realName)
     chans.foreach(client.join(_))
     onConnect(client, chans)
-
-    // synchronous message handling loop. exits if irc server disconnects
-    client.run { msg => true }
-
-    println("Disconnect")
-    client.disconnect
-    onDisconnect
+    try {
+      // synchronous message handling loop. exits if irc server disconnects
+      client.run { msg => true }
+    }
+    finally {
+      onDisconnect
+    }
   }
 }
 

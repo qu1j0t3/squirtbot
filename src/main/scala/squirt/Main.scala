@@ -26,7 +26,9 @@ import math._
 
 import main.scala.bot1.IrcClient
 
-object Main {
+import grizzled.slf4j.Logging
+
+object Main extends Logging {
   def randomNick = "s-%03d".format(abs(Random.nextInt) % 1000)
 
   // These values are specific to your account; see
@@ -53,9 +55,9 @@ object Main {
         }
       }
       catch {
-        case e:Exception => println(e.getMessage)
+        case e:Exception => error(e.getMessage)
       }
-      println("reconnecting in 30 secs...")
+      info("reconnecting in 30 secs...")
       Thread.sleep(30000)
       stayConnected(chans, nick, oauth)
     }
