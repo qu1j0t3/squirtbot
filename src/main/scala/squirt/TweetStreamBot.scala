@@ -31,7 +31,7 @@ import grizzled.slf4j.Logging
 
 class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
         extends Bot with Logging {
-  val userStreamUrl = "https://userstream.twitter.com/2/user.json"
+  val USER_STREAM_JSON = "https://userstream.twitter.com/2/user.json"
 
   case class TweetIrcTranscriber(client:IrcClientInterface, chans:List[String])
           extends Runnable {
@@ -43,7 +43,7 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
     def processTweetStream {
       val req = new Requester(OAuth.HMAC_SHA1, oauth.consumerSecret, oauth.consumerKey,
                               oauth.token, oauth.tokenSecret, OAuth.VERSION_1)
-      val stream = req.getResponse(userStreamUrl, Map()).getEntity.getContent
+      val stream = req.getResponse(USER_STREAM_JSON, Map()).getEntity.getContent
 
       @tailrec
       def nextLine(iter:Iterator[String]) {
@@ -72,11 +72,10 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
                 } )
               true
             case ParseDelete(d) =>
-              chans.foreach( c =>
-                cache.getTweetById(d.id).foreach( t =>
-                  c.synchronized {
-                    client.action(c, "@%s deleted '%s'".format(t.user.screenName, t.abbreviated))
-                  } ) )
+              // FIXME: Ideally announce this only in relevant channel(s)
+              cache.getTweetById(d.id).foreach( t =>
+                actionAllChannels("@%s deleted '%s'".format(t.user.screenName, t.abbreviated))
+              )
               true
             case ParseFavorite(f) =>
               actionAllChannels("@%s favourited '%s'".format(f.source.screenName, f.target.abbreviated))

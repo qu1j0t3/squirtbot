@@ -32,7 +32,7 @@ abstract class Bot {
     onConnect(client, chans)
     try {
       // synchronous message handling loop. exits if irc server disconnects
-      client.run { msg => true }
+      client.run(msg => true)
     }
     finally {
       onDisconnect

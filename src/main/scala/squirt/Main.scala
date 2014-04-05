@@ -24,7 +24,7 @@ import annotation.tailrec
 import util.Random
 import math._
 
-import main.scala.bot1.IrcClient
+import main.scala.bot1.IrcClient._
 
 import grizzled.slf4j.Logging
 
@@ -43,7 +43,6 @@ object Main extends Logging {
 
     @tailrec
     def stayConnected(chans:List[String], nick:String, oauth:OAuthCredentials) {
-      import IrcClient._
       try {
         val client = connectSSL(FREENODE, SSL_PORT, "UTF-8")
         val bot = new TweetStreamBot(oauth, cache)

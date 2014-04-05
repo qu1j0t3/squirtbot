@@ -1,10 +1,5 @@
 package main.scala.bot1
 
-import annotation.tailrec
-
-import javax.net.SocketFactory
-import javax.net.ssl.SSLSocketFactory
-
 import util.Random
 import math._
 
