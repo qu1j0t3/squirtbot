@@ -22,20 +22,21 @@ package main.scala.squirt
 import main.scala.bot1.IrcClientInterface
 
 abstract class Bot {
-  def onConnect(client:IrcClientInterface, chans:List[String], quit:Signal)
+  def onConnect(client:IrcClientInterface, chans:List[String])
+  def onDisconnect
 
   def run(client:IrcClientInterface, chans:List[String], pass:Option[String],
           nick:String, userName:String, realName:String) {
-    val quit = new Signal
-    
     client.register(pass, nick, userName, realName)
     chans.foreach(client.join(_))
-    onConnect(client, chans, quit)
+    onConnect(client, chans)
+
+    // synchronous message handling loop. exits if irc server disconnects
     client.run { msg => true }
 
     println("Disconnect")
     client.disconnect
-    quit.signal
+    onDisconnect
   }
 }
 

@@ -6,16 +6,12 @@ import concurrent.ops.spawn
 import javax.net.SocketFactory
 import javax.net.ssl.SSLSocketFactory
 
-import main.scala.squirt.Signal
-
 class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface {
 
   val MircCode = """\002|(\003\d\d?(,\d\d?)?)|\017|\026|\037""".r
   def stripMircColours(s:String) = MircCode.replaceAllIn(s, "")
 
   def run(handle:IrcMessage => Boolean) {
-    val exit = new Signal
-
     @tailrec
     def moreReplies(lastFrom:Option[String],
                     lastCommand:Option[String],
@@ -77,18 +73,7 @@ Sending: PRIVMSG #VO1aW93A :Socket closed
       }
     }
 
-    spawn {
-      try {
-        moreReplies(None, None, None)
-      }
-      catch {
-        case e:Exception => println(e.getMessage)
-      }
-      finally {
-        exit.signal
-      }
-    }
-    exit.await
+    moreReplies(None, None, None)
   }
 
   def command(cmd:String, middle:Seq[String], trailing:Option[String]) {

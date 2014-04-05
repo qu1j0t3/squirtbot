@@ -31,15 +31,21 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
         extends Bot {
   val userStreamUrl = "https://userstream.twitter.com/2/user.json"
 
-  override def onConnect(client:IrcClientInterface, chans:List[String], quit:Signal) {
-    spawn {
+  case class TweetIrcTranscriber(client:IrcClientInterface, chans:List[String])
+          extends Runnable {
+
+    def actionAllChannels(s:String) {
+      chans.foreach( c => c.synchronized { client.action(c, s) } )
+    }
+
+    def processTweetStream {
       val req = new Requester(OAuth.HMAC_SHA1, oauth.consumerSecret, oauth.consumerKey,
                               oauth.token, oauth.tokenSecret, OAuth.VERSION_1)
       val stream = req.getResponse(userStreamUrl, Map()).getEntity.getContent
 
       @tailrec
       def nextLine(iter:Iterator[String]) {
-        if(!quit.signaled && iter.hasNext) {
+        if(iter.hasNext) {
           val line = iter.next
           val continue = Parse.parseOption(line).map {
             case ParseTweet(t) =>
@@ -71,13 +77,11 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
                   } ) )
               true
             case ParseFavorite(f) =>
-              chans.foreach( c =>
-                c.synchronized {
-                  client.action(c, "@%s favourited '%s'".format(f.source.screenName, f.target.abbreviated))
-                } )
+              actionAllChannels("@%s favourited '%s'".format(f.source.screenName, f.target.abbreviated))
               true
             case ParseDisconnect(d) =>
-              println("whoa, dude. Twitter disconnected us (%s, %s, %s)".format(d.code, d.streamName, d.reason))
+              actionAllChannels("was disconnected by Twitter (%s, %s, %s)"
+                                .format(d.code, d.streamName, d.reason))
               false
             case _ =>
               println("*** "+line)
@@ -92,14 +96,40 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
       try {
         nextLine(Source.fromInputStream(stream, "UTF-8").getLines)
       }
-      catch {
-        case e:Exception =>
-          chans.foreach(client.action(_, "saw an exception: "+e.getMessage))
-          e.printStackTrace
+      finally {
+        stream.close
+      }
+    }
+
+    override def run {
+      @tailrec
+      def connect {
+        try {
+          processTweetStream
+        }
+        catch {
+          case e:InterruptedException => throw e
+          case e:Exception =>
+            actionAllChannels("got exception: "+e.getMessage+" ; reconnecting to Twitter...")
+        }
+        Thread.sleep(5000) // this delay is just plucked out of a hat
+        connect // retry forever
       }
 
-      quit.signal
+      connect
     }
+  }
+
+  var thread:Option[Thread] = None
+
+  override def onConnect(client:IrcClientInterface, chans:List[String]) {
+    val t = new Thread(TweetIrcTranscriber(client, chans))
+    thread = Some(t)
+    t.run()
+  }
+
+  override def onDisconnect {
+    thread.foreach(_.interrupt)
   }
 
 }
