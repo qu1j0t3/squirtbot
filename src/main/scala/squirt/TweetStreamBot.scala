@@ -33,10 +33,10 @@ import org.apache.http.client.config.RequestConfig
 
 class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
         extends Bot with Logging {
-  val USER_STREAM_JSON = "https://userstream.twitter.com/2/user.json"
+  val USER_STREAM_JSON = "https://userstream.twitter.com/1.1/user.json"
   val SOCK_TIMEOUT_MS = 5*60*1000
 
-  case class TweetIrcTranscriber(client:IrcClientInterface, chans:List[String])
+  class TweetIrcTranscriber(client:IrcClientInterface, chans:List[String])
           extends Runnable {
 
     def actionAllChannels(s:String) {
@@ -87,6 +87,9 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
             case ParseFavorite(f) =>
               actionAllChannels("@%s favourited '%s'".format(f.source.screenName, f.target.abbreviated))
               true
+            case ParseFriends(f) =>
+              info("following "+f.userIds.length+" users")
+              true
             case ParseDisconnect(d) =>
               actionAllChannels("was disconnected by Twitter (%s, %s, %s)"
                                 .format(d.code, d.streamName, d.reason))
@@ -131,12 +134,12 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
     }
   }
 
-  var thread:Option[Thread] = None
+  var thread:Option[Thread] = None  // ewww
 
   override def onConnect(client:IrcClientInterface, chans:List[String]) {
-    val t = new Thread(TweetIrcTranscriber(client, chans))
+    val t = new Thread(new TweetIrcTranscriber(client, chans))
     thread = Some(t)
-    t.run()
+    t.start()
   }
 
   override def onDisconnect {

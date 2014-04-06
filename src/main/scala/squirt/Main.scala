@@ -45,7 +45,6 @@ object Main extends Logging {
     def stayConnected(chans:List[String], nick:String, oauth:OAuthCredentials) {
       try {
         val client = connectSSL(FREENODE, SSL_PORT, "UTF-8")
-        info("irc connected")
         val bot = new TweetStreamBot(oauth, cache)
         try {
           bot.run(client, chans, None, nick, "squirtbot", bot.toString)
