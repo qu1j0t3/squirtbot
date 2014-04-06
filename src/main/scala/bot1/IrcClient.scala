@@ -2,6 +2,7 @@ package main.scala.bot1
 
 import annotation.tailrec
 
+import java.net.Socket
 import javax.net.SocketFactory
 import javax.net.ssl.SSLSocketFactory
 
@@ -121,13 +122,16 @@ object IrcClient {
   // 6697 (SSL only), 7000 (SSL only), 7070 (SSL only), 8000, 8001 and 8002.
   val PLAINTEXT_PORT = 6667
   val SSL_PORT = 6697
+  val SOCK_TIMEOUT_MS = 5*60*1000 // Freenode PING seems to timeout at 255 seconds
   
   val sockFactory = SocketFactory.getDefault
   val sslSockFactory = SSLSocketFactory.getDefault
+
+  def withTimeout(sock:Socket) = { sock.setSoTimeout(SOCK_TIMEOUT_MS); sock }
   
   def connect(host:String, port:Int, charset:String) =
-    new IrcClient(new IrcSocketClient(sockFactory.createSocket(host, port), charset))
+    new IrcClient(new IrcSocketClient(withTimeout(sockFactory.createSocket(host, port)), charset))
   
   def connectSSL(host:String, port:Int, charset:String) =
-    new IrcClient(new IrcSocketClient(sslSockFactory.createSocket(host, port), charset))
+    new IrcClient(new IrcSocketClient(withTimeout(sslSockFactory.createSocket(host, port)), charset))
 }

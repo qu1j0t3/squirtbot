@@ -29,9 +29,12 @@ import main.scala.bot1.IrcClientInterface
 
 import grizzled.slf4j.Logging
 
+import org.apache.http.client.config.RequestConfig
+
 class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
         extends Bot with Logging {
   val USER_STREAM_JSON = "https://userstream.twitter.com/2/user.json"
+  val SOCK_TIMEOUT_MS = 5*60*1000
 
   case class TweetIrcTranscriber(client:IrcClientInterface, chans:List[String])
           extends Runnable {
@@ -41,9 +44,13 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
     }
 
     def processTweetStream {
+      val config = RequestConfig.custom
+                                .setSocketTimeout(SOCK_TIMEOUT_MS)
+                                .setStaleConnectionCheckEnabled(true)
+                                .build
       val req = new Requester(OAuth.HMAC_SHA1, oauth.consumerSecret, oauth.consumerKey,
                               oauth.token, oauth.tokenSecret, OAuth.VERSION_1)
-      val stream = req.getResponse(USER_STREAM_JSON, Map()).getEntity.getContent
+      val stream = req.getResponse(USER_STREAM_JSON, Map(), Some(config)).getEntity.getContent
 
       @tailrec
       def nextLine(iter:Iterator[String]) {
@@ -109,11 +116,14 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
           processTweetStream
         }
         catch {
-          case e:InterruptedException => throw e
+          case e:InterruptedException =>
+            info(e.getMessage)
+            throw e
           case e:Exception =>
+            error(e.getMessage)
             actionAllChannels("got exception: "+e.getMessage+" ; reconnecting to Twitter...")
         }
-        Thread.sleep(5000) // this delay is just plucked out of a hat
+        Thread.sleep(10000) // this delay is just plucked out of a hat
         connect // retry forever
       }
 
