@@ -29,7 +29,7 @@ import main.scala.bot1.IrcClient._
 import grizzled.slf4j.Logging
 
 object Main extends Logging {
-  def randomNick = "s-%03d".format(abs(Random.nextInt) % 1000)
+  def randomNick = "s-%03d".format(abs(Random.nextInt) % 10000)
 
   // These values are specific to your account; see
   // https://dev.twitter.com/docs/auth/tokens-devtwittercom
@@ -40,25 +40,30 @@ object Main extends Logging {
 
   def main(args:Array[String]) {
     val cache = new TweetCache
+    val CONNECT_BACKOFF_MS = 10000
 
     @tailrec
-    def stayConnected(chans:List[String], nick:String, oauth:OAuthCredentials) {
-      try {
-        val client = connectSSL(FREENODE, SSL_PORT, "UTF-8")
-        val bot = new TweetStreamBot(oauth, cache)
+    def stayConnected(chans:List[String], nick:String, oauth:OAuthCredentials, backoffMs:Int) {
+      val newBackoff =
         try {
-          bot.run(client, chans, None, nick, "squirtbot", bot.toString)
+          val client = connectSSL(FREENODE, SSL_PORT, "UTF-8")
+          val bot = new TweetStreamBot(oauth, cache)
+          try {
+            bot.run(client, chans, None, nick, "squirtbot", bot.toString)
+            CONNECT_BACKOFF_MS
+          }
+          finally {
+            client.disconnect
+          }
         }
-        finally {
-          client.disconnect
+        catch {
+          case e:Exception =>
+            error(e)
+            backoffMs
         }
-      }
-      catch {
-        case e:Exception => error(e.getMessage)
-      }
-      info("reconnecting in 30 secs...")
-      Thread.sleep(30000)
-      stayConnected(chans, nick, oauth)
+      info("reconnecting in %.1f secs...".format(newBackoff/1000.))
+      Thread.sleep(newBackoff)
+      stayConnected(chans, nick, oauth, newBackoff + newBackoff/2)
     }
 
     // FreeNode will only use 16 characters of a nick

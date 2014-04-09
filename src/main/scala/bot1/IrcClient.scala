@@ -8,12 +8,44 @@ import javax.net.ssl.SSLSocketFactory
 
 import grizzled.slf4j.Logging
 
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.FutureTask
+
 class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface with Logging {
+
+  val INTERMESSAGE_SLEEP_MS = 300 // avoid flooding Freenode
 
   val MircCode = """\002|(\003\d\d?(,\d\d?)?)|\017|\026|\037""".r
   def stripMircColours(s:String) = MircCode.replaceAllIn(s, "")
 
+  // use a queue to decouple the message producers and consumer
+  val throttledMessageQ = new LinkedBlockingQueue[IrcEvent](64)
+
+  protected def unthrottledPrivmsg(target:String, msg:String) {
+    command("PRIVMSG", List(target), Some(msg))
+  }
+
+  protected def unthrottledAction(target:String, action:String) {
+    privmsg(target, "\001ACTION %s\001".format(action))
+  }
+
   def run(handle:IrcMessage => Boolean) {
+    val dispatcherRunnable = new Runnable {
+      def run {
+        @tailrec
+        def dispatchEvents(q:LinkedBlockingQueue[IrcEvent]) {
+          q.take match {
+            case IrcPrivMsg(chan, msg) => unthrottledPrivmsg(chan, msg)
+            case IrcAction(chan, actn) => unthrottledAction(chan, actn)
+          }
+          Thread.sleep(INTERMESSAGE_SLEEP_MS)
+          dispatchEvents(q)
+        }
+
+        dispatchEvents(throttledMessageQ)
+      }
+    }
+
     @tailrec
     def moreReplies(lastFrom:Option[String],
                     lastCommand:Option[String],
@@ -28,12 +60,12 @@ class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface with Logg
         val printFrom = if(dupe) "" else msg.serverOrNick.getOrElse("")
         msg.params match {
           case firstParam :: rest => // at least one parameter
-            info("%8s %24s %24s | %s".format(msg.commandOrResponse,
-                                             printFrom,
-                                             if(dupe) "" else firstParam,
-                                             stripMircColours(rest.mkString(" "))))
+            debug("%8s %24s %24s | %s".format(msg.commandOrResponse,
+                                              printFrom,
+                                              if(dupe) "" else firstParam,
+                                              stripMircColours(rest.mkString(" "))))
           case Nil => // no parameters
-            info("%8s %24s".format(msg.commandOrResponse, printFrom))
+            debug("%8s %24s".format(msg.commandOrResponse, printFrom))
         }
       }
 
@@ -77,6 +109,7 @@ Sending: PRIVMSG #VO1aW93A :Socket closed
       }
     }
 
+    new Thread(new FutureTask(dispatcherRunnable, true)).start
     moreReplies(None, None, None)
   }
 
@@ -104,11 +137,11 @@ Sending: PRIVMSG #VO1aW93A :Socket closed
   }
 
   def privmsg(target:String, msg:String) {
-    command("PRIVMSG", List(target), Some(msg))
+    throttledMessageQ.put(IrcPrivMsg(target, msg))
   }
 
   def action(target:String, action:String) {
-    privmsg(target, "\001ACTION %s\001".format(action))
+    throttledMessageQ.put(IrcAction(target, action))
   }
   
   // Just disconnect. We might do this if the server has disconnected us.
@@ -122,16 +155,16 @@ object IrcClient {
   // 6697 (SSL only), 7000 (SSL only), 7070 (SSL only), 8000, 8001 and 8002.
   val PLAINTEXT_PORT = 6667
   val SSL_PORT = 6697
-  val SOCK_TIMEOUT_MS = 5*60*1000 // Freenode PING seems to timeout at 255 seconds
+  val SOCK_TIMEOUT_MS = 5*60*1000
   
   val sockFactory = SocketFactory.getDefault
   val sslSockFactory = SSLSocketFactory.getDefault
 
-  def withTimeout(sock:Socket) = { sock.setSoTimeout(SOCK_TIMEOUT_MS); sock }
+  //def withTimeout(sock:Socket) = { sock.setSoTimeout(SOCK_TIMEOUT_MS); sock }
   
   def connect(host:String, port:Int, charset:String) =
-    new IrcClient(new IrcSocketClient(withTimeout(sockFactory.createSocket(host, port)), charset))
+    new IrcClient(new IrcSocketClient(sockFactory.createSocket(host, port), charset))
   
   def connectSSL(host:String, port:Int, charset:String) =
-    new IrcClient(new IrcSocketClient(withTimeout(sslSockFactory.createSocket(host, port)), charset))
+    new IrcClient(new IrcSocketClient(sslSockFactory.createSocket(host, port), charset))
 }

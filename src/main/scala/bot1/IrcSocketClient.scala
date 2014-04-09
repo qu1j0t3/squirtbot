@@ -1,22 +1,21 @@
 package main.scala.bot1
 
 import annotation.tailrec
-import concurrent.ops.spawn
 
 import java.net.Socket
+import java.net.SocketTimeoutException
 
 import grizzled.slf4j.Logging
 
 class IrcSocketClient(sock:Socket, charset:String) extends Logging {
   val CR = 015
   val LF = 012
-
-  val INTERMESSAGE_SLEEP_MS = 250 // avoid flooding Freenode
   
   val oStream = sock.getOutputStream
   val iStream = sock.getInputStream
 
-  def getReply:Option[String] = {
+  @tailrec
+  final def getReply:Option[String] = {
     val message = new Array[Byte](512)
 
     // This transition function recognises a CR/LF sequence.
@@ -56,7 +55,17 @@ class IrcSocketClient(sock:Socket, charset:String) extends Logging {
           }
       }
 
-    getByte(0, 0)
+    //getByte(0, 0)
+    /* If using a socket timeout: */
+    try {
+      getByte(0, 0)
+    }
+    catch {
+      case e:SocketTimeoutException => debug(e)
+      // Let's assume we just missed a PING because the connection
+      // was busy in the other direction
+    }
+    getReply  // retry
   }
 
   // Parameters must follow the lexical rules given in RFC.
@@ -65,15 +74,13 @@ class IrcSocketClient(sock:Socket, charset:String) extends Logging {
   // contain spaces and :'s. No parameter can include NUL, CR or LF.
 
   def command(cmd:String, middle:Seq[String], trailing:Option[String]) {
+    val message = cmd+" "+middle.mkString(" ")+trailing.map(" :"+).getOrElse("")
     oStream.synchronized {
-      val message = cmd+" "+middle.mkString(" ")+trailing.map(" :"+).getOrElse("")
       debug("Sending: "+message)
       oStream.write(message.getBytes(charset))
       oStream.write(CR)
       oStream.write(LF)
       oStream.flush
-      Thread.sleep(INTERMESSAGE_SLEEP_MS)
-      // FIXME: Should decouple this from the calling thread with a producer/consumer queue
     }
   }
         

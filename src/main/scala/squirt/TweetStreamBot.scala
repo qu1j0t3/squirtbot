@@ -36,7 +36,7 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
   val USER_STREAM_JSON = "https://userstream.twitter.com/1.1/user.json"
   val SOCK_TIMEOUT_MS = 5*60*1000
 
-  class TweetIrcTranscriber(client:IrcClientInterface, chans:List[String])
+  class Transcriber(client:IrcClientInterface, chans:List[String])
           extends Runnable {
 
     def actionAllChannels(s:String) {
@@ -104,12 +104,7 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
         }
       }
 
-      try {
-        nextLine(Source.fromInputStream(stream, "UTF-8").getLines)
-      }
-      finally {
-        stream.close
-      }
+      nextLine(Source.fromInputStream(stream, "UTF-8").getLines)
     }
 
     override def run {
@@ -120,10 +115,10 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
         }
         catch {
           case e:InterruptedException =>
-            info(e.getMessage)
+            info(e)
             throw e
           case e:Exception =>
-            error(e.getMessage)
+            error(e)
             actionAllChannels("got exception: "+e.getMessage+" ; reconnecting to Twitter...")
         }
         Thread.sleep(10000) // this delay is just plucked out of a hat
@@ -137,7 +132,7 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
   var thread:Option[Thread] = None  // ewww
 
   override def onConnect(client:IrcClientInterface, chans:List[String]) {
-    val t = new Thread(new TweetIrcTranscriber(client, chans))
+    val t = new Thread(new Transcriber(client, chans))
     thread = Some(t)
     t.start()
   }

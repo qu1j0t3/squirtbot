@@ -44,7 +44,7 @@ object Ur1Ca extends UrlShortener with Logging {
         None
     }
     catch {
-      case e:Exception => error(e.getMessage); None
+      case e:Exception => error(e); None
     }
   }
 }
