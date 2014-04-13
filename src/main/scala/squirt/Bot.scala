@@ -20,10 +20,14 @@
 package main.scala.squirt
 
 import main.scala.bot1.IrcClientInterface
+import main.scala.bot1.IrcMessage
 
 abstract class Bot {
-  def onConnect(client:IrcClientInterface, chans:List[String])
-  def onDisconnect
+  def onConnect(client:IrcClientInterface, chans:List[String]) { }
+  def onDisconnect { }
+
+  // default implementation, does nothing
+  def onCommand(m:IrcMessage):Boolean = true
 
   def run(client:IrcClientInterface, chans:List[String], pass:Option[String],
           nick:String, userName:String, realName:String) {
@@ -31,8 +35,9 @@ abstract class Bot {
     chans.foreach(client.join(_))
     onConnect(client, chans)
     try {
-      // synchronous message handling loop. exits if irc server disconnects
-      client.run(msg => true)
+      // Synchronous message handling loop.
+      // Exits if irc server disconnects, or supplied function returns false.
+      client.run(onCommand(_))
     }
     finally {
       onDisconnect

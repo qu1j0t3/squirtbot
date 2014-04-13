@@ -26,11 +26,11 @@ class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface with Logg
   }
 
   protected def unthrottledAction(target:String, action:String) {
-    privmsg(target, "\001ACTION %s\001".format(action))
+    unthrottledPrivmsg(target, "\001ACTION %s\001".format(action))
   }
 
   def run(handle:IrcMessage => Boolean) {
-    val dispatcherRunnable = new Runnable {
+    val dispatcher = new Runnable {
       def run {
         @tailrec
         def dispatchEvents(q:LinkedBlockingQueue[IrcEvent]) {
@@ -69,6 +69,8 @@ class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface with Logg
         }
       }
 
+      // The client should mostly be blocked here,
+      // waiting for data from the irc server.
       sockClient.getReply match {
         case Some(reply) =>
           reply match {
@@ -109,7 +111,10 @@ Sending: PRIVMSG #VO1aW93A :Socket closed
       }
     }
 
-    new Thread(new FutureTask(dispatcherRunnable, true)).start
+    // The dispatcher is set up as a FutureTask because we may want to
+    // check if it has exited.
+    new Thread(new FutureTask(dispatcher, true)).start
+    
     moreReplies(None, None, None)
   }
 

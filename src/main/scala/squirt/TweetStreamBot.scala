@@ -115,7 +115,7 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
         }
         catch {
           case e:InterruptedException =>
-            info(e)
+            debug(e)
             throw e
           case e:Exception =>
             error(e)

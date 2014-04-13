@@ -46,9 +46,16 @@ object Main extends Logging {
     def stayConnected(chans:List[String], nick:String, oauth:OAuthCredentials, backoffMs:Int) {
       val newBackoff =
         try {
+          // The client is the interface to the IRC service.
+          // It includes a concurrent thread that manages rate limited
+          // sending of messages to the server.
           val client = connectSSL(FREENODE, SSL_PORT, "UTF-8")
           val bot = new TweetStreamBot(oauth, cache)
           try {
+            // A bot defines its behaviour through the onConnect,
+            // onDisconnect, and onCommand methods. It runs until
+            // disconnected from the server for any reason.
+            val bot = new TweetStreamBot(oauth, cache)
             bot.run(client, chans, None, nick, "squirtbot", bot.toString)
             CONNECT_BACKOFF_MS
           }

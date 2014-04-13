@@ -55,7 +55,6 @@ class IrcSocketClient(sock:Socket, charset:String) extends Logging {
           }
       }
 
-    //getByte(0, 0)
     /* If using a socket timeout: */
     try {
       getByte(0, 0)
