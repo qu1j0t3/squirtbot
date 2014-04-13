@@ -27,12 +27,9 @@ import annotation.tailrec
 
 import main.scala.bot1.IrcClientInterface
 
-import grizzled.slf4j.Logging
-
 import org.apache.http.client.config.RequestConfig
 
-class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache)
-        extends Bot with Logging {
+class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
   val USER_STREAM_JSON = "https://userstream.twitter.com/1.1/user.json"
   val SOCK_TIMEOUT_MS = 5*60*1000
 

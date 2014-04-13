@@ -5,12 +5,15 @@ class Project(info: ProjectInfo) extends DefaultProject(info) with assembly.Asse
 
   override def packageOptions = Seq(MainClass("main.scala.squirt.Main"))
 
+  /* override def fork = Some(new ForkScalaRun {
+    override def runJVMOptions = super.runJVMOptions ++ Seq("-Dcom.sun.management.jmxremote")
+    override def scalaJars = Seq(buildLibraryJar.asFile, buildCompilerJar.asFile)
+  }) */
+
   //val scalatools = "scala-tools" at "http://scala-tools.org/repo-snapshots"
 
   //val scalatest = "org.scalatest" % "scalatest" % "1.0" % "test->default"
-  //val pircbot = "pircbot" % "pircbot" % "1.5" from "http://www.bertails.org/pircbot.jar"
-
-  //val jodatime = "joda-time" % "joda-time" % "1.6"
+  
   override def libraryDependencies = Set(
     // jm.oauth depends on this:
     "org.apache.httpcomponents" % "httpclient" % "4.3.2",

@@ -19,10 +19,12 @@
 
 package main.scala.squirt
 
+import grizzled.slf4j.Logging
+
 import main.scala.bot1.IrcClientInterface
 import main.scala.bot1.IrcMessage
 
-abstract class Bot {
+abstract class Bot extends Logging {
   def onConnect(client:IrcClientInterface, chans:List[String]) { }
   def onDisconnect { }
 
@@ -38,6 +40,9 @@ abstract class Bot {
       // Synchronous message handling loop.
       // Exits if irc server disconnects, or supplied function returns false.
       client.run(onCommand(_))
+    }
+    catch {
+      case e:Exception => error(e)
     }
     finally {
       onDisconnect

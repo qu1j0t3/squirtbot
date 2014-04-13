@@ -8,8 +8,7 @@ import javax.net.ssl.SSLSocketFactory
 
 import grizzled.slf4j.Logging
 
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.FutureTask
+import java.util.concurrent._
 
 class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface with Logging {
 
@@ -33,7 +32,7 @@ class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface with Logg
     val dispatcher = new Runnable {
       def run {
         @tailrec
-        def dispatchEvents(q:LinkedBlockingQueue[IrcEvent]) {
+        def dispatchEvents(q:BlockingQueue[IrcEvent]) {
           q.take match {
             case IrcPrivMsg(chan, msg) => unthrottledPrivmsg(chan, msg)
             case IrcAction(chan, actn) => unthrottledAction(chan, actn)

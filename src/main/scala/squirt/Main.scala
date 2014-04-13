@@ -64,9 +64,7 @@ object Main extends Logging {
           }
         }
         catch {
-          case e:Exception =>
-            error(e)
-            backoffMs
+          case e:Exception => error(e); backoffMs
         }
       info("reconnecting in %.1f secs...".format(newBackoff/1000.))
       Thread.sleep(newBackoff)
