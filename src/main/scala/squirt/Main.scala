@@ -66,7 +66,7 @@ object Main extends Logging {
         catch {
           case e:Exception => error(e); backoffMs
         }
-      info("reconnecting in %.1f secs...".format(newBackoff/1000.))
+      info("reconnecting in %.1f secs...".format(newBackoff/1000.0))
       Thread.sleep(newBackoff)
       stayConnected(chans, nick, oauth, newBackoff + newBackoff/2)
     }
