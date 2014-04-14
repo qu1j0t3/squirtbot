@@ -50,7 +50,6 @@ object Main extends Logging {
           // It includes a concurrent thread that manages rate limited
           // sending of messages to the server.
           val client = connectSSL(FREENODE, SSL_PORT, "UTF-8")
-          val bot = new TweetStreamBot(oauth, cache)
           try {
             // A bot defines its behaviour through the onConnect,
             // onDisconnect, and onCommand methods. It runs until
