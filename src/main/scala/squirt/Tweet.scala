@@ -42,18 +42,17 @@ case class Tweet(text:String, id:String, user:TwitterUser, retweetOf:Option[Twee
   def highlightNick(s:String)    = BOLD       + s + NORMAL
   def highlightLeftCol(s:String) = DARK_BLUE  + s + NORMAL
 
-  def format(send:String=>Unit, leftColumn:List[String], text:String) {
+  def format(leftColumn:List[String], text:String):List[String] = {
     val wrapped = text
                   .split('\n')          // respect newlines in original tweet
                   .flatMap { WordWrap.wrap(_, wrapCols, highlightWord) }
-    leftColumn.zipAll(wrapped, "", "").zipWithIndex.foreach {
+    leftColumn.zipAll(wrapped, "", "").zipWithIndex.map {
       case ((a,b),i) =>
-        send((if(i == 0) highlightNick(a) else highlightLeftCol(a)) +
-             " "*(2 max (indentCols - a.size)) + b)
-    }
-    send(highlightUrl("."*40 + "  " + Ur1Ca.shortenUrl(url).getOrElse(url)))
+        (if(i == 0) highlightNick(a) else highlightLeftCol(a)) +
+             " "*(2 max (indentCols - a.size)) + b
+    } ++ List(highlightUrl("."*40 + "  " + Ur1Ca.shortenUrl(url).getOrElse(url)))
   }
-  
+
   def description:String =
     retweetOf.map(rt => "retweet of @%s by @%s".format(rt.user.screenName, user.screenName))
              .getOrElse("tweet by @"+user.screenName)
@@ -69,11 +68,10 @@ case class Tweet(text:String, id:String, user:TwitterUser, retweetOf:Option[Twee
     if(abbrev != text) abbrev+"..." else abbrev
   }
 
-  def sendTweet(send:String=>Unit) {
-    // If it's a retweet, send full text of original tweet,
-    // otherwise full text of this tweet
-    format(send, descriptionList, retweetOf.map(_.text).getOrElse(text))
-  }
+  // If it's a retweet, send full text of original tweet,
+  // otherwise full text of this tweet
+  def sendTweet:List[String] =
+    format(descriptionList, retweetOf.map(_.text).getOrElse(text))
 }
 
 object ParseTweet {

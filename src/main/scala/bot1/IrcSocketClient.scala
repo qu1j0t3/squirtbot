@@ -10,13 +10,14 @@ import grizzled.slf4j.Logging
 class IrcSocketClient(sock:Socket, charset:String) extends Logging {
   val CR = 015
   val LF = 012
-  
+  val MESSAGE_LIMIT = 512
+
   val oStream = sock.getOutputStream
   val iStream = sock.getInputStream
 
   @tailrec
   final def getReply:Option[String] = {
-    val message = new Array[Byte](512)
+    val message = new Array[Byte](MESSAGE_LIMIT)
 
     // This transition function recognises a CR/LF sequence.
     def nextState(state:Int, b:Int) = (state,b) match {
@@ -48,7 +49,7 @@ class IrcSocketClient(sock:Socket, charset:String) extends Logging {
           val state1 = nextState(state, b)
           if(state1 == 2) {
             Some(new String(message, 0, i+1, charset))
-          } else if((i-state1) > 510) { // message is over limit
+          } else if((i-state1) > MESSAGE_LIMIT-2) { // message is over limit
             if(skipToCrLf(state1)) getByte(0, 0) else None
           } else {
             getByte(i+1, state1)
@@ -60,11 +61,12 @@ class IrcSocketClient(sock:Socket, charset:String) extends Logging {
       getByte(0, 0)
     }
     catch {
-      case e:SocketTimeoutException => debug(e)
+      case e:SocketTimeoutException =>
+        debug(e)
+        getReply  // retry
       // Let's assume we just missed a PING because the connection
       // was busy in the other direction
     }
-    getReply  // retry
   }
 
   // Parameters must follow the lexical rules given in RFC.

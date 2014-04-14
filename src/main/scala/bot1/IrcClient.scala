@@ -31,13 +31,25 @@ class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface with Logg
   def run(handle:IrcMessage => Boolean) {
     val dispatcher = new Runnable {
       def run {
+        // synchronize on the channel name, so that multiple bots
+        // configured in this program won't interrupt each other.
+        // careful: will only work as expected if chan is an
+        // intern'd String (e.g. a literal); see http://stackoverflow.com/a/9698305
         @tailrec
         def dispatchEvents(q:BlockingQueue[IrcEvent]) {
           q.take match {
-            case IrcPrivMsg(chan, msg) => unthrottledPrivmsg(chan, msg)
-            case IrcAction(chan, actn) => unthrottledAction(chan, actn)
+            case IrcPrivMsg(chan, msg) => // skip sleep as these are meant to be isolated
+              chan.synchronized { unthrottledPrivmsg(chan, msg) }
+            case IrcAction(chan, actn) => // skip sleep as these are meant to be isolated
+              chan.synchronized { unthrottledAction(chan, actn) }
+            case IrcPrivMsgGroup(chan, group) =>
+              chan.synchronized {
+                group.foreach { msg =>
+                  unthrottledPrivmsg(chan, msg)
+                  Thread.sleep(INTERMESSAGE_SLEEP_MS) // this is meant to be the high-volume case
+                }
+              }
           }
-          Thread.sleep(INTERMESSAGE_SLEEP_MS)
           dispatchEvents(q)
         }
 
@@ -142,6 +154,10 @@ Sending: PRIVMSG #VO1aW93A :Socket closed
 
   def privmsg(target:String, msg:String) {
     throttledMessageQ.put(IrcPrivMsg(target, msg))
+  }
+
+  def privmsgGroup(target:String, group:Seq[String]) {
+    throttledMessageQ.put(IrcPrivMsgGroup(target, group))
   }
 
   def action(target:String, action:String) {

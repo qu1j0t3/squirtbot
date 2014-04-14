@@ -4,11 +4,12 @@ version := "0.1"
 
 scalaVersion := "2.10.4"
 
-scalacOptions += "-deprecation"
+scalacOptions ++= Seq("-deprecation", "-feature")
 
 fork in run := true
 
-javaOptions in (run) += "-Dcom.sun.management.jmxremote"
+// -Xshare:off to work around http://bugs.java.com/view_bug.do?bug_id=6497639 , http://bugs.java.com/view_bug.do?bug_id=6598065
+javaOptions in (run) ++= Seq("-Dcom.sun.management.jmxremote", "-Xmx128M", "-Xshare:off")
 
 resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
 

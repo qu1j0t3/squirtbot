@@ -37,7 +37,7 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
           extends Runnable {
 
     def actionAllChannels(s:String) {
-      chans.foreach( c => c.synchronized { client.action(c, s) } )
+      chans.foreach( client.action(_, s) )
     }
 
     def processTweetStream {
@@ -55,12 +55,7 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
           val line = iter.next
           val continue = Parse.parseOption(line).map {
             case ParseTweet(t) =>
-              // synchronize on the channel name, so that multiple bots
-              // configured in this program won't interrupt each other.
-              // careful: will only work as expected if chan is an
-              // intern'd String (e.g. a literal); see http://stackoverflow.com/a/9698305
               chans.foreach( c =>
-                c.synchronized {
                   // has the tweet been seen in the same channel recently?
                   if(!cache.lookupOrPut(c, t)) {
                     t.retweetOf match {
@@ -68,12 +63,11 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
                         client.action(c, "@%s retweeted @%s: '%s'"
                                          .format(t.user.screenName, rt.user.screenName, rt.abbreviated))
                       case _ =>
-                        t.sendTweet( client.privmsg(c, _) )
+                        client.privmsgGroup(c, t.sendTweet)
                     }
                   } else {
                     client.action(c, "saw that %s too".format(t.description))
-                  }
-                } )
+                  } )
               true
             case ParseDelete(d) =>
               // FIXME: Ideally announce this only in relevant channel(s)
