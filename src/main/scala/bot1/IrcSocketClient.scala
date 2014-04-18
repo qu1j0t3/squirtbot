@@ -15,8 +15,7 @@ class IrcSocketClient(sock:Socket, charset:String) extends Logging {
   val oStream = sock.getOutputStream
   val iStream = sock.getInputStream
 
-  @tailrec
-  final def getReply:Option[String] = {
+  def getReply:Option[String] = {
     val message = new Array[Byte](MESSAGE_LIMIT)
 
     // This transition function recognises a CR/LF sequence.
@@ -56,17 +55,19 @@ class IrcSocketClient(sock:Socket, charset:String) extends Logging {
           }
       }
 
-    /* If using a socket timeout: */
+    getByte(0, 0)
+
+    /* If using a socket timeout:
     try {
       getByte(0, 0)
     }
     catch {
       case e:SocketTimeoutException =>
         debug(e)
-        getReply  // retry
+        getReply  // retry [This doesn't compile in 2.9.x, can't tailrec]
       // Let's assume we just missed a PING because the connection
       // was busy in the other direction
-    }
+    }*/
   }
 
   // Parameters must follow the lexical rules given in RFC.

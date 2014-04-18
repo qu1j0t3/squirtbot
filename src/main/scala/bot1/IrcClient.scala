@@ -9,10 +9,14 @@ import javax.net.ssl.SSLSocketFactory
 import grizzled.slf4j.Logging
 
 import java.util.concurrent._
+import java.util.concurrent.atomic.AtomicInteger
 
 class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface with Logging {
 
-  val INTERMESSAGE_SLEEP_MS = 300 // avoid flooding Freenode
+  val INTERMESSAGE_SLEEP_MS = 500 // avoid flooding Freenode
+  val INTERGROUP_SLEEP_MS = 2000
+  
+  val ThrottleNotice = """\*\*\* Message to \S+ throttled due to flooding""".r
 
   val MircCode = """\002|(\003\d\d?(,\d\d?)?)|\017|\026|\037""".r
   def stripMircColours(s:String) = MircCode.replaceAllIn(s, "")
@@ -20,7 +24,14 @@ class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface with Logg
   // use a queue to decouple the message producers and consumer
   val throttledMessageQ = new LinkedBlockingQueue[IrcEvent](64)
 
+  var messageCount = new AtomicInteger(0)
+  var throttledCount = new AtomicInteger(0)
+
+  override def getAndResetStats:Stats =
+      Stats(messageCount.getAndSet(0), throttledCount.getAndSet(0))
+
   protected def unthrottledPrivmsg(target:String, msg:String) {
+    messageCount.incrementAndGet
     command("PRIVMSG", List(target), Some(msg))
   }
 
@@ -48,6 +59,7 @@ class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface with Logg
                   unthrottledPrivmsg(chan, msg)
                   Thread.sleep(INTERMESSAGE_SLEEP_MS) // this is meant to be the high-volume case
                 }
+                Thread.sleep(INTERGROUP_SLEEP_MS)
               }
           }
           dispatchEvents(q)
@@ -94,6 +106,9 @@ class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface with Logg
                 (msg.commandOrResponse,msg.params) match {
                   case ("PING",server1 :: _) =>
                     command("PONG", List(server1), None); true
+                  case ("NOTICE",msgtarget :: ThrottleNotice() :: Nil) => // FIXME: match our nick
+                    throttledCount.incrementAndGet
+                    true
                   case _ =>
                     handle(msg)
                 }
@@ -150,6 +165,10 @@ Sending: PRIVMSG #VO1aW93A :Socket closed
   def quit(msg:Option[String]) {
     command("QUIT", Nil, msg)
     // It would now be polite to wait for the server to disconnect.
+  }
+
+  def notice(target:String, msg:String) {
+    command("NOTICE", List(target), Some(msg))
   }
 
   def privmsg(target:String, msg:String) {

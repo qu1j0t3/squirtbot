@@ -11,7 +11,11 @@ trait IrcClientInterface {
   def part(chan:String, msg:Option[String])
   def quit(msg:Option[String])
   def privmsg(target:String, msg:String)
+  def notice(target:String, msg:String)
   def privmsgGroup(target:String, group:Seq[String])
   def action(target:String, action:String)
   def disconnect
+
+  case class Stats(messageCount:Int, throttledCount:Int)
+  def getAndResetStats:Stats
 }

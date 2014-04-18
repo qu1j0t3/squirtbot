@@ -21,17 +21,25 @@ package main.scala.squirt
 
 import concurrent.ops._
 import io.Source
-import argonaut.Parse
-import jm.oauth._
 import annotation.tailrec
 
-import main.scala.bot1.IrcClientInterface
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.ScheduledThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
 import org.apache.http.client.config.RequestConfig
+import argonaut.Parse
+import jm.oauth._
+
+import main.scala.bot1.IrcClientInterface
 
 class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
   val USER_STREAM_JSON = "https://userstream.twitter.com/1.1/user.json"
   val SOCK_TIMEOUT_MS = 5*60*1000
+  val STATS_PERIOD_SEC = 60*60
+
+  val connectCount = new AtomicInteger(0)
+  val tweetCount = new AtomicInteger(0)
 
   class Transcriber(client:IrcClientInterface, chans:List[String])
           extends Runnable {
@@ -47,7 +55,9 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
                                 .build
       val req = new Requester(OAuth.HMAC_SHA1, oauth.consumerSecret, oauth.consumerKey,
                               oauth.token, oauth.tokenSecret, OAuth.VERSION_1)
-      val stream = req.getResponse(USER_STREAM_JSON, Map(), Some(config)).getEntity.getContent
+      val stream = req.getResponse(USER_STREAM_JSON, Map(), Some(config))
+                      .getEntity
+                      .getContent
 
       @tailrec
       def nextLine(iter:Iterator[String]) {
@@ -55,6 +65,7 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
           val line = iter.next
           val continue = Parse.parseOption(line).map {
             case ParseTweet(t) =>
+              tweetCount.incrementAndGet
               chans.foreach( c =>
                   // has the tweet been seen in the same channel recently?
                   if(!cache.lookupOrPut(c, t)) {
@@ -95,6 +106,7 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
         }
       }
 
+      connectCount.incrementAndGet
       nextLine(Source.fromInputStream(stream, "UTF-8").getLines)
     }
 
@@ -123,9 +135,25 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
   var thread:Option[Thread] = None  // ewww
 
   override def onConnect(client:IrcClientInterface, chans:List[String]) {
+    val statsTask = new Runnable() {
+      override def run() {
+        val clientStats = client.getAndResetStats
+        client.notice(chans.head,
+                      "Last %d secs: %d tweets, %d cnx to Twitter, %d msgs sent, %d throttle notices".format(
+                        STATS_PERIOD_SEC,
+                        tweetCount.getAndSet(0),
+                        connectCount.getAndSet(0),
+                        clientStats.messageCount,
+                        clientStats.throttledCount))
+      }
+    }
+
+    val timedExecutor = new ScheduledThreadPoolExecutor(1)
     val t = new Thread(new Transcriber(client, chans))
     thread = Some(t)
     t.start()
+
+    timedExecutor.scheduleAtFixedRate(statsTask, STATS_PERIOD_SEC, STATS_PERIOD_SEC, TimeUnit.SECONDS)
   }
 
   override def onDisconnect {
