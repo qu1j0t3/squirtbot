@@ -16,6 +16,6 @@ trait IrcClientInterface {
   def action(target:String, action:String)
   def disconnect
 
-  case class Stats(messageCount:Int, throttledCount:Int)
+  case class Stats(messageCount:Int, throttledCount:Int, throttleSleepMs:Int)
   def getAndResetStats:Stats
 }

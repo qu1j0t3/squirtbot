@@ -26,9 +26,14 @@ class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface with Logg
 
   var messageCount = new AtomicInteger(0)
   var throttledCount = new AtomicInteger(0)
+  var sleepMs = new AtomicInteger(0)
 
+  // N.B. There is a race condition between calls to getAndResetStats,
+  //      but it's only meant to work for a single caller.
   override def getAndResetStats:Stats =
-      Stats(messageCount.getAndSet(0), throttledCount.getAndSet(0))
+    Stats(messageCount.getAndSet(0),
+          throttledCount.getAndSet(0),
+          sleepMs.getAndSet(0))
 
   protected def unthrottledPrivmsg(target:String, msg:String) {
     messageCount.incrementAndGet
@@ -58,8 +63,10 @@ class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface with Logg
                 group.foreach { msg =>
                   unthrottledPrivmsg(chan, msg)
                   Thread.sleep(INTERMESSAGE_SLEEP_MS) // this is meant to be the high-volume case
+                  sleepMs.addAndGet(INTERMESSAGE_SLEEP_MS)
                 }
                 Thread.sleep(INTERGROUP_SLEEP_MS)
+                sleepMs.addAndGet(INTERGROUP_SLEEP_MS)
               }
           }
           dispatchEvents(q)

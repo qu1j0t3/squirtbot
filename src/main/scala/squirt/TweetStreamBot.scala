@@ -39,7 +39,10 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
   val STATS_PERIOD_SEC = 60*60
 
   val connectCount = new AtomicInteger(0)
-  val tweetCount = new AtomicInteger(0)
+  val tweetCount   = new AtomicInteger(0)
+  var tweeters:List[String]   = Nil
+  var retweeters:List[String] = Nil
+  var hashtags:List[String]   = Nil
 
   class Transcriber(client:IrcClientInterface, chans:List[String])
           extends Runnable {
@@ -66,6 +69,13 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
           val continue = Parse.parseOption(line).map {
             case ParseTweet(t) =>
               tweetCount.incrementAndGet
+              synchronized { // blah mutation :(
+                if(t.retweetOf.isDefined)
+                  retweeters = t.user.screenName :: retweeters
+                else
+                  tweeters = t.user.screenName :: tweeters
+                hashtags = hashtags ++ t.hashtags
+              }
               chans.foreach( c =>
                   // has the tweet been seen in the same channel recently?
                   if(!cache.lookupOrPut(c, t)) {
@@ -135,25 +145,46 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
   var thread:Option[Thread] = None  // ewww
 
   override def onConnect(client:IrcClientInterface, chans:List[String]) {
+    val bot = this
     val statsTask = new Runnable() {
       override def run() {
+        def top(n:Int, prefix:String, input:List[String]) =
+          input.groupBy(identity)
+               .map{ case (v,group) => (v,group.length) }
+               .toList
+               .sortWith( (a, b) => a._2 > b._2 )
+               .take(n)
+               .map{ case (s,n) => "%s%s (%d)".format(prefix, s, n) }
+               .mkString(", ")
+
+        val (ts,rts,hts) = bot.synchronized {
+          val get = (tweeters,retweeters,hashtags)
+          tweeters = Nil
+          retweeters = Nil
+          hashtags = Nil
+          get
+        }
         val clientStats = client.getAndResetStats
         client.notice(chans.head,
-                      "Last %d secs: %d tweets, %d cnx to Twitter, %d msgs sent, %d throttle notices".format(
+                      "Last %d secs: %d tweets, %d cnx to Twitter, %d msgs sent (~ %.1f%% of max rate), %d throttle notices".format(
                         STATS_PERIOD_SEC,
                         tweetCount.getAndSet(0),
                         connectCount.getAndSet(0),
                         clientStats.messageCount,
+                        100.0*clientStats.throttleSleepMs/(STATS_PERIOD_SEC*1000.0),
                         clientStats.throttledCount))
+        client.notice(chans.head, "Top tweeters:    " + top(3, "@", ts))
+        client.notice(chans.head, "Top re-tweeters: " + top(3, "@", rts))
+        client.notice(chans.head, "Top hashtags:    " + top(3, "#", hts))
       }
     }
 
-    val timedExecutor = new ScheduledThreadPoolExecutor(1)
     val t = new Thread(new Transcriber(client, chans))
     thread = Some(t)
     t.start()
 
-    timedExecutor.scheduleAtFixedRate(statsTask, STATS_PERIOD_SEC, STATS_PERIOD_SEC, TimeUnit.SECONDS)
+    new ScheduledThreadPoolExecutor(1).scheduleAtFixedRate(
+      statsTask, STATS_PERIOD_SEC, STATS_PERIOD_SEC, TimeUnit.SECONDS)
   }
 
   override def onDisconnect {

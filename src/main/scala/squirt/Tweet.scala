@@ -22,7 +22,8 @@ package main.scala.squirt
 import argonaut._
 import org.jibble.pircbot.Colors._
 
-case class Tweet(text:String, id:String, user:TwitterUser, retweetOf:Option[Tweet]) {
+case class Tweet(text:String, id:String, user:TwitterUser,
+                 hashtags:List[String], retweetOf:Option[Tweet]) {
   def url:String = "http://twitter.com/" + user.screenName + "/status/" + id
 
   val indentCols = 17
@@ -75,6 +76,13 @@ case class Tweet(text:String, id:String, user:TwitterUser, retweetOf:Option[Twee
 }
 
 object ParseTweet {
+  def getHashtags(hashtags:List[Json]):List[String] =
+    for {
+      ht <- hashtags
+      textJ <- ht -| "text"
+      text <- textJ.string
+    } yield text
+
   def unapply(j:Json):Option[Tweet] =
     for {
       textJ <- j -| "text"
@@ -83,9 +91,12 @@ object ParseTweet {
       text  <- textJ.string
       id    <- idJ.string
       user  <- ParseTwitterUser.unapply(userJ)
+      entitiesJ <- j -| "entities"
+      hashtagsJ <- entitiesJ -| "hashtags"
+      hashtags  <- hashtagsJ.array
     }
     yield (j -| "retweeted_status") match {
-      case Some(ParseTweet(rt)) => Tweet(text, id, user, Some(rt))
-      case _                    => Tweet(text, id, user, None)
+      case Some(ParseTweet(rt)) => Tweet(text, id, user, getHashtags(hashtags), Some(rt))
+      case _                    => Tweet(text, id, user, getHashtags(hashtags), None)
     }
 }
