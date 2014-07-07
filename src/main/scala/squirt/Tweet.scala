@@ -49,8 +49,8 @@ case class Tweet(text:String, id:String, user:TwitterUser,
 
   def splitWithIndex(s:String, c:Char):List[(Int,String)] =
     s.split(c).foldLeft( (0,Nil:List[(Int,String)]) )(
-      (acc, line) =>
-        acc match { case (col,lines) => (col + line.size + 1, (col,line) :: lines) }
+      (acc, s) =>
+        acc match { case (col,rest) => (col + s.size + 1, (col,s) :: rest) }
     )._2.reverse
 
   def format(leftColumn:List[String], text:String):List[String] = {
