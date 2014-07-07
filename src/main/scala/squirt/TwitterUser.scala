@@ -24,13 +24,10 @@ import argonaut._
 case class TwitterUser(id:String, screenName:String, name:String)
 
 object ParseTwitterUser {
-  def unapply(j:Json):Option[TwitterUser] =
-    for {
-      idJ         <- j -| "id_str"
-      screenNameJ <- j -| "screen_name"
-      nameJ       <- j -| "name"
-      id          <- idJ.string
-      screenName  <- screenNameJ.string
-      name        <- nameJ.string
-    } yield TwitterUser(id, screenName, name)
+  val codec: CodecJson[TwitterUser] =
+    CodecJson.casecodec3(TwitterUser.apply, TwitterUser.unapply)("id_str", "screen_name", "name")
+
+  implicit val decoder = codec.Decoder
+
+  def unapply(j:Json):Option[TwitterUser] = j.as[TwitterUser].toOption
 }

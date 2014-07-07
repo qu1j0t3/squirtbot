@@ -99,6 +99,9 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
             case ParseFavorite(f) =>
               actionAllChannels("@%s favourited '%s'".format(f.source.screenName, f.target.abbreviated))
               true
+            case ParseFollow(f) =>
+              actionAllChannels("@%s followed @%s".format(f.source.screenName, f.target.screenName))
+              true
             case ParseFriends(f) =>
               info("following "+f.userIds.length+" users")
               true
