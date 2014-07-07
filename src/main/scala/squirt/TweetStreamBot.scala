@@ -36,7 +36,7 @@ import main.scala.bot1.IrcClientInterface
 class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
   val USER_STREAM_JSON = "https://userstream.twitter.com/1.1/user.json"
   val SOCK_TIMEOUT_MS = 5*60*1000
-  val STATS_PERIOD_SEC = 60*60
+  val STATS_PERIOD_SEC = 60*60*12
 
   val connectCount = new AtomicInteger(0)
   val tweetCount   = new AtomicInteger(0)
@@ -152,7 +152,7 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
           input.groupBy(identity)
                .map{ case (v,group) => (v,group.length) }
                .toList
-               .sortWith( (a, b) => a._2 > b._2 )
+               .sortWith( _._2 > _._2 )
                .take(n)
                .map{ case (s,n) => "%s%s (%d)".format(prefix, s, n) }
                .mkString(", ")
@@ -166,8 +166,8 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
         }
         val clientStats = client.getAndResetStats
         client.notice(chans.head,
-                      "Last %d secs: %d tweets, %d cnx to Twitter, %d msgs sent (~ %.1f%% of max rate), %d throttle notices".format(
-                        STATS_PERIOD_SEC,
+                      "Last %d hrs: %d tweets, %d cnx to Twitter, %d msgs sent (~ %.0f%% of max rate), %d throttle notices".format(
+                        STATS_PERIOD_SEC/(60*60),
                         tweetCount.getAndSet(0),
                         connectCount.getAndSet(0),
                         clientStats.messageCount,
