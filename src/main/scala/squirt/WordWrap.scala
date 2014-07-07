@@ -21,30 +21,38 @@ package main.scala.squirt
 
 object WordWrap {
 
-  def wrap(text:String, wrapCol:Int, highlighter:String=>String):List[String] = {
+  sealed trait Word { def text:String }
+  case class PlainWord(text:String) extends Word
+  case class UrlWord(text:String) extends Word
+  case class HashTagWord(text:String) extends Word
+  case class UserMentionWord(text:String) extends Word
 
-    def fixEntities(s:String) =
-      s.replace("&lt;",  "<")
-       .replace("&gt;",  ">")
-       .replace("&amp;", "&")
+  val ScreenName = """@.+""".r
+  val HashTag    = """#.+""".r
+  val Url        = """https?:\/\/.*""".r
 
+  def classify(s:String):Word = s match {
+    case ScreenName() => UserMentionWord(s)
+    case HashTag()    => HashTagWord(s)
+    case Url()        => UrlWord(s)
+    case _            => PlainWord(s)
+  }
+
+  def wrap(words:List[Word], wrapCol:Int):List[List[Word]] = {
     val (_,lines,lastLine) =
-      fixEntities(text)
-      .split(' ')
-      .foldLeft((0, Nil:List[List[String]], Nil:List[String])) {
+      words.foldLeft((0, Nil:List[List[Word]], Nil:List[Word])) {
         (state,word) => {
           val (column,linesAcc,lineAcc) = state
-          val newCol = column + 1 + word.size
-          val colourWord = highlighter(word)
+          val newCol = column + 1 + word.text.size
           if(column == 0)              // always take first word
-            (word.size, linesAcc, colourWord :: lineAcc)
+            (word.text.size, linesAcc, word :: lineAcc)
           else if (newCol <= wrapCol)  // word fits on line
-            (newCol, linesAcc, colourWord :: lineAcc)
+            (newCol, linesAcc, word :: lineAcc)
           else                         // too long, wrap to next line
-            (word.size, lineAcc :: linesAcc, List(colourWord))
+            (word.text.size, lineAcc :: linesAcc, List(word))
         }
       }
-    (lastLine :: lines).reverse.map(_.reverse.mkString(" "))
+    (lastLine :: lines).reverse.map(_.reverse)
   }
 
 }

@@ -22,31 +22,57 @@ package main.scala.squirt
 import argonaut._
 import org.jibble.pircbot.Colors._
 
+import WordWrap._
+
 case class Tweet(text:String, id:String, user:TwitterUser,
-                 hashtags:List[String], retweetOf:Option[Tweet]) {
+                 hashtags:List[String], urls:List[TwitterUrl],
+                 retweetOf:Option[Tweet]) {
   def url:String = "http://twitter.com/" + user.screenName + "/status/" + id
 
   val indentCols = 17
   val wrapCols   = 47
 
-  val ScreenName = """@.+""".r
-  val HashTag    = """#.+""".r
-  val Url        = """https?:\/\/.*""".r
-
-  def highlightWord(word:String) = word match {
-    case ScreenName() => MAGENTA + word + NORMAL
-    case HashTag()    => CYAN    + word + NORMAL
-    case Url()        => PURPLE  + word + NORMAL
-    case _            => word
+  def highlight(word:Word) = word match {
+    case UserMentionWord(s) => MAGENTA + s + NORMAL
+    case HashTagWord(s)     => CYAN    + s + NORMAL
+    case UrlWord(s)         => PURPLE  + s + NORMAL
+    case PlainWord(s)       => s
   }
   def highlightUrl(s:String)     = DARK_GREEN + s + NORMAL
   def highlightNick(s:String)    = BOLD       + s + NORMAL
   def highlightLeftCol(s:String) = DARK_BLUE  + s + NORMAL
 
+  def fixEntities(s:String) =
+    s.replace("&lt;",  "<")
+     .replace("&gt;",  ">")
+     .replace("&amp;", "&")
+
+  def splitWithIndex(s:String, c:Char):List[(Int,String)] =
+    s.split(c).foldLeft( (0,Nil:List[(Int,String)]) )(
+      (acc, line) =>
+        acc match { case (col,lines) => (col + line.size + 1, (col,line) :: lines) }
+    )._2.reverse
+
   def format(leftColumn:List[String], text:String):List[String] = {
-    val wrapped = text
-                  .split('\n')          // respect newlines in original tweet
-                  .flatMap { WordWrap.wrap(_, wrapCols, highlightWord) }
+    // 1) convert string into lines. keep starting column for each line
+    // 2) break lines into words. classify each word. match each word
+    //    to URL entity indexes; if matched, add parenthesised hostname
+    // 3) stringify each word with colour codes, then flatMap
+
+    // respect newlines in original tweet
+    val wrapped:List[String] =
+      splitWithIndex(text, '\n').flatMap {
+        case (lineIdx,line) => {
+          val words:List[Word] = splitWithIndex(line, ' ').flatMap {
+            case (wordIdx,word) => // could possibly substitute the t.co url with expanded if it was shorter
+              classify(fixEntities(word)) ::
+                urls.filter( u => ((c:Int) => c > 0 && c <= word.size)(u.endIndex - (lineIdx + wordIdx)) )
+                    .map( u => UrlWord("(" + UrlResolver.resolve(u.expandedUrl).getOrElse("error") + ")") )
+          }
+          wrap(words, wrapCols).map( _.map(highlight(_)) )
+        }
+      }.map(_.mkString(" "))
+
     leftColumn.zipAll(wrapped, "", "").zipWithIndex.map {
       case ((a,b),i) =>
         (if(i == 0) highlightNick(a) else highlightLeftCol(a)) +
@@ -78,10 +104,13 @@ case class Tweet(text:String, id:String, user:TwitterUser,
 object ParseTweet {
   def getHashtags(hashtags:List[Json]):List[String] =
     for {
-      ht <- hashtags
+      ht    <- hashtags
       textJ <- ht -| "text"
-      text <- textJ.string
+      text  <- textJ.string
     } yield text
+
+  def getUrls(urls:List[Json]):List[TwitterUrl] =
+    urls.flatMap(ParseTwitterUrl.unapply(_))
 
   def unapply(j:Json):Option[Tweet] =
     for {
@@ -94,9 +123,13 @@ object ParseTweet {
       entitiesJ <- j -| "entities"
       hashtagsJ <- entitiesJ -| "hashtags"
       hashtags  <- hashtagsJ.array
+      urlsJ <- entitiesJ -| "urls"
+      urls  <- urlsJ.array
     }
     yield (j -| "retweeted_status") match {
-      case Some(ParseTweet(rt)) => Tweet(text, id, user, getHashtags(hashtags), Some(rt))
-      case _                    => Tweet(text, id, user, getHashtags(hashtags), None)
+      case Some(ParseTweet(rt)) =>
+        Tweet(text, id, user, getHashtags(hashtags), getUrls(urls), Some(rt))
+      case _ =>
+        Tweet(text, id, user, getHashtags(hashtags), getUrls(urls), None)
     }
 }
