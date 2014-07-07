@@ -128,7 +128,7 @@ object ParseTweet {
     }
     yield (j -| "retweeted_status") match {
       case Some(ParseTweet(rt)) =>
-        Tweet(text, id, user, getHashtags(hashtags), getUrls(urls), Some(rt))
+        Tweet(text, id, user, getHashtags(hashtags), rt.urls, Some(rt))
       case _ =>
         Tweet(text, id, user, getHashtags(hashtags), getUrls(urls), None)
     }
