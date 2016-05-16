@@ -152,7 +152,7 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
     val statsTask = new Runnable() {
       override def run() {
         def top(n:Int, prefix:String, input:List[String]) =
-          input.groupBy(identity)
+          input.groupBy(_.toLowerCase)
                .map{ case (v,group) => (v,group.length) }
                .toList
                .sortWith( _._2 > _._2 )
@@ -176,9 +176,9 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
                         clientStats.messageCount,
                         100.0*clientStats.throttleSleepMs/(STATS_PERIOD_SEC*1000.0),
                         clientStats.throttledCount))
-        client.notice(chans.head, "Top tweeters:    " + top(3, "@", ts))
-        client.notice(chans.head, "Top re-tweeters: " + top(3, "@", rts))
-        client.notice(chans.head, "Top hashtags:    " + top(3, "#", hts))
+        if(!ts.isEmpty)  client.notice(chans.head, "Top tweeters:    " + top(3, "@", ts))
+        if(!rts.isEmpty) client.notice(chans.head, "Top re-tweeters: " + top(3, "@", rts))
+        if(!hts.isEmpty) client.notice(chans.head, "Top hashtags:    " + top(3, "#", hts))
       }
     }
 
