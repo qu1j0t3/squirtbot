@@ -30,7 +30,7 @@ case class Tweet(text:String, id:String, user:TwitterUser,
   def url:String = "http://twitter.com/" + user.screenName + "/status/" + id
 
   val indentCols = 17
-  val wrapCols   = 47
+  val wrapCols   = 57
 
   def highlight(word:Word) = word match {
     case UserMentionWord(s) => MAGENTA + s + NORMAL
@@ -77,7 +77,7 @@ case class Tweet(text:String, id:String, user:TwitterUser,
       case ((a,b),i) =>
         (if(i == 0) highlightNick(a) else highlightLeftCol(a)) +
              " "*(2 max (indentCols - a.size)) + b
-    } ++ List(highlightUrl("."*40 + "  " + Ur1Ca.shortenUrl(url).getOrElse(url)))
+    } ++ List(highlightUrl("."*12 + "  " + url))
   }
 
   def description:String =
