@@ -73,11 +73,11 @@ case class Tweet(text:String, id:String, user:TwitterUser,
         }
       }.map(_.mkString(" "))
 
-    leftColumn.zipAll(wrapped, "", "").zipWithIndex.map {
+    leftColumn.zipAll(highlightUrl(url) :: wrapped, "", "").zipWithIndex.map {
       case ((a,b),i) =>
         (if(i == 0) highlightNick(a) else highlightLeftCol(a)) +
              " "*(2 max (indentCols - a.size)) + b
-    } ++ List(highlightUrl("."*12 + "  " + url))
+    } ++ List(" ")
   }
 
   def description:String =
