@@ -91,8 +91,9 @@ case class Tweet(text:String, id:String, user:TwitterUser,
              .getOrElse(List("@"+user.screenName))
 
   def abbreviated = {
-    val abbrev = text.split("\\s").take(8).mkString(" ")
-    if(abbrev != text) abbrev+"..." else abbrev
+    val textFixed = fixEntities(text)
+    val abbrev = textFixed.split("\\s").take(8).mkString(" ")
+    if(abbrev != textFixed) abbrev+"..." else abbrev
   }
 
   // If it's a retweet, send full text of original tweet,
