@@ -17,17 +17,14 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-package main.scala.squirt
+package squirt
 
+import argonaut.Argonaut._
 import argonaut._
 
-case class TwitterUser(id:String, screenName:String, name:String)
+final case class TwitterUser(id: String, screenName: String, name: String)
 
-object ParseTwitterUser {
-  val codec: CodecJson[TwitterUser] =
-    CodecJson.casecodec3(TwitterUser.apply, TwitterUser.unapply)("id_str", "screen_name", "name")
-
-  implicit val decoder = codec.Decoder
-
-  def unapply(j:Json):Option[TwitterUser] = j.as[TwitterUser].toOption
+object TwitterUser {
+  implicit val decode: DecodeJson[TwitterUser] =
+    jdecode3L(TwitterUser.apply)("id_str", "screen_name", "name")
 }

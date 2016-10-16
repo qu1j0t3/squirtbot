@@ -1,4 +1,4 @@
-package main.scala.squirt
+package squirt
 
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.client.protocol.HttpClientContext

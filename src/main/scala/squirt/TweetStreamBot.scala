@@ -17,7 +17,7 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-package main.scala.squirt
+package squirt
 
 import io.Source
 import annotation.tailrec
@@ -65,48 +65,48 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
       def nextLine(iter:Iterator[String]) {
         if(iter.hasNext) {
           val line = iter.next
-          val continue = Parse.parseOption(line).map {
-            case ParseTweet(t) =>
+          debug(line)
+          val continue = Parse.decode[Message](line).map {
+            case t @ Tweet(_, _, _, _, _, _) =>
               tweetCount.incrementAndGet
               synchronized { // blah mutation :(
                 if(t.retweetOf.isDefined)
                   retweeters = t.user.screenName :: retweeters
                 else
                   tweeters = t.user.screenName :: tweeters
-                hashtags = hashtags ++ t.hashtags
+                hashtags = hashtags ++ t.entities.hashtags.map(_.text)
               }
               chans.foreach( c =>
-                  // has the tweet been seen in the same channel recently?
-                  if(!cache.lookupOrPut(c, t)) {
-                    t.retweetOf match {
-                      case Some(rt) if cache.lookupOrPut(c, rt) =>
-                        client.action(c, "@%s retweeted @%s: '%s'"
-                                         .format(t.user.screenName, rt.user.screenName, rt.abbreviated))
-                      case _ =>
-                        client.privmsgGroup(c, t.sendTweet)
-                    }
-                  } else {
-                    client.action(c, "saw that %s too".format(t.description))
-                  } )
+                // has the tweet been seen in the same channel recently?
+                if(!cache.lookupOrPut(c, t)) {
+                  t.retweetOf match {
+                    case Some(rt) if cache.lookupOrPut(c, rt) =>
+                      client.action(c, "@%s retweeted @%s: '%s'"
+                                       .format(t.user.screenName, rt.user.screenName, rt.abbreviated))
+                    case _ =>
+                      client.privmsgGroup(c, t.sendTweet)
+                  }
+                } else {
+                  client.action(c, "saw that %s too".format(t.description))
+                } )
               true
-            case ParseDelete(d) =>
+            case Delete(id, user) =>
               // FIXME: Ideally announce this only in relevant channel(s)
-              cache.getTweetById(d.id).foreach( t =>
-                actionAllChannels("@%s deleted '%s'".format(t.user.screenName, t.abbreviated))
-              )
+              cache.getTweetById(id).foreach( t =>
+                actionAllChannels("@%s deleted '%s'".format(t.user.screenName, t.abbreviated)) )
               true
-            case ParseFavorite(f) =>
-              actionAllChannels("@%s favourited '%s'".format(f.source.screenName, f.target.abbreviated))
+            case FavoriteEvent(s, t) =>
+              actionAllChannels("@%s favourited '%s'".format(s.screenName, t.abbreviated))
               true
-            case ParseFollow(f) =>
-              actionAllChannels("@%s followed @%s".format(f.source.screenName, f.target.screenName))
+            case FollowEvent(s, t) =>
+              actionAllChannels("@%s followed @%s".format(s.screenName, t.screenName))
               true
-            case ParseFriends(f) =>
-              info("following "+f.userIds.length+" users")
+            case Friends(ids) =>
+              info("following "+ids.length+" users")
               true
-            case ParseDisconnect(d) =>
+            case Disconnect(code, streamName, reason) =>
               actionAllChannels("was disconnected by Twitter (%s, %s, %s)"
-                                .format(d.code, d.streamName, d.reason))
+                                .format(code, streamName, reason))
               false
             case _ =>
               debug("*** "+line)
@@ -134,6 +134,7 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
             throw e
           case e:Exception =>
             error(e)
+            e.printStackTrace()
             actionAllChannels("got exception: "+e.getMessage+" ; reconnecting to Twitter...")
         }
         Thread.sleep(10000) // this delay is just plucked out of a hat

@@ -85,7 +85,7 @@ class IrcSocketClient(sock:Socket, charset:String) extends Logging {
       oStream.flush
     }
   }
-        
+
   // Just disconnect. We might do this if the server has disconnected us.
   def disconnect { sock.close }
 }

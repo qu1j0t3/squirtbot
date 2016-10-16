@@ -17,23 +17,19 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-package main.scala.squirt
+package squirt
 
+import argonaut.Argonaut._
 import argonaut._
 
-case class TwitterUrl(url:String, expandedUrl:String, startIndex:Int, endIndex:Int)
+final case class TwitterUrl(url: String, expandedUrl: String, startIndex: Int, endIndex: Int)
 
-object ParseTwitterUrl {
-  def unapply(j:Json):Option[TwitterUrl] = {
-    // This parser syntax proposed by @tixxit
-    val c = j.acursor
-    ( for {
-        url         <- c.downField("url").as[String]
-        expandedUrl <- c.downField("expanded_url").as[String]
-        indices      = c.downField("indices")
-        start       <- indices.downN(0).as[Int]
-        end         <- indices.downN(1).as[Int]
-      } yield TwitterUrl(url, expandedUrl, start, end)
-    ).toOption
-  }
+object TwitterUrl {
+  implicit val decode: DecodeJson[TwitterUrl] =
+    jdecode3L( (indices:List[Int], url:String, expandedUrl:String) =>
+      indices match {
+        case List(start, end) => TwitterUrl(url, expandedUrl, start, end)
+        // ignore match failure
+      }
+    )("indices", "url", "expanded_url")
 }

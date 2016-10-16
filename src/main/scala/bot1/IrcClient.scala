@@ -15,7 +15,7 @@ class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface with Logg
 
   val INTERMESSAGE_SLEEP_MS = 500 // avoid flooding Freenode
   val INTERGROUP_SLEEP_MS = 2000
-  
+
   val ThrottleNotice = """\*\*\* Message to \S+ throttled due to flooding""".r
 
   val MircCode = """\002|(\003\d\d?(,\d\d?)?)|\017|\026|\037""".r
@@ -147,7 +147,7 @@ Sending: PRIVMSG #VO1aW93A :Socket closed
     // The dispatcher is set up as a FutureTask because we may want to
     // check if it has exited.
     new Thread(new FutureTask(dispatcher, true)).start
-    
+
     moreReplies(None, None, None)
   }
 
@@ -189,28 +189,28 @@ Sending: PRIVMSG #VO1aW93A :Socket closed
   def action(target:String, action:String) {
     throttledMessageQ.put(IrcAction(target, action))
   }
-  
+
   // Just disconnect. We might do this if the server has disconnected us.
   def disconnect { sockClient.disconnect }
 }
 
 object IrcClient {
   val FREENODE = "irc.freenode.net"
-  
+
   // All freenode servers listen on ports 6665, 6666, 6667,
   // 6697 (SSL only), 7000 (SSL only), 7070 (SSL only), 8000, 8001 and 8002.
   val PLAINTEXT_PORT = 6667
   val SSL_PORT = 6697
   val SOCK_TIMEOUT_MS = 5*60*1000
-  
+
   val sockFactory = SocketFactory.getDefault
   val sslSockFactory = SSLSocketFactory.getDefault
 
   //def withTimeout(sock:Socket) = { sock.setSoTimeout(SOCK_TIMEOUT_MS); sock }
-  
+
   def connect(host:String, port:Int, charset:String) =
     new IrcClient(new IrcSocketClient(sockFactory.createSocket(host, port), charset))
-  
+
   def connectSSL(host:String, port:Int, charset:String) =
     new IrcClient(new IrcSocketClient(sslSockFactory.createSocket(host, port), charset))
 }
