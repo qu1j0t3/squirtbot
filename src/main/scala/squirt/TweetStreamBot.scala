@@ -19,7 +19,6 @@
 
 package main.scala.squirt
 
-import concurrent.ops._
 import io.Source
 import annotation.tailrec
 
@@ -51,7 +50,7 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
       chans.foreach( client.action(_, s) )
     }
 
-    def processTweetStream {
+    def processTweetStream(): Unit = {
       val config = RequestConfig.custom
                                 .setSocketTimeout(SOCK_TIMEOUT_MS)
                                 .setStaleConnectionCheckEnabled(true)
@@ -123,11 +122,11 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
       nextLine(Source.fromInputStream(stream, "UTF-8").getLines)
     }
 
-    override def run {
+    override def run() {
       @tailrec
-      def connect {
+      def connect() {
         try {
-          processTweetStream
+          processTweetStream()
         }
         catch {
           case e:InterruptedException =>
@@ -138,10 +137,10 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
             actionAllChannels("got exception: "+e.getMessage+" ; reconnecting to Twitter...")
         }
         Thread.sleep(10000) // this delay is just plucked out of a hat
-        connect // retry forever
+        connect() // retry forever
       }
 
-      connect
+      connect()
     }
   }
 
@@ -151,12 +150,12 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
     val bot = this
     val statsTask = new Runnable() {
       override def run() {
-        def top(n:Int, prefix:String, input:List[String]) =
+        def top(count:Int, prefix:String, input:List[String]) =
           input.groupBy(_.toLowerCase)
                .map{ case (v,group) => (v,group.length) }
                .toList
                .sortWith( _._2 > _._2 )
-               .take(n)
+               .take(count)
                .map{ case (s,n) => "%s%s (%d)".format(prefix, s, n) }
                .mkString(", ")
 
@@ -176,9 +175,9 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
                         clientStats.messageCount,
                         100.0*clientStats.throttleSleepMs/(STATS_PERIOD_SEC*1000.0),
                         clientStats.throttledCount))
-        if(!ts.isEmpty)  client.notice(chans.head, "Top tweeters:    " + top(3, "@", ts))
-        if(!rts.isEmpty) client.notice(chans.head, "Top re-tweeters: " + top(3, "@", rts))
-        if(!hts.isEmpty) client.notice(chans.head, "Top hashtags:    " + top(3, "#", hts))
+        if(ts.nonEmpty)  client.notice(chans.head, "Top tweeters:    " + top(3, "@", ts))
+        if(rts.nonEmpty) client.notice(chans.head, "Top re-tweeters: " + top(3, "@", rts))
+        if(hts.nonEmpty) client.notice(chans.head, "Top hashtags:    " + top(3, "#", hts))
       }
     }
 

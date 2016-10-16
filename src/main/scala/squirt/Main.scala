@@ -19,7 +19,6 @@
 
 package main.scala.squirt
 
-import concurrent.ops._
 import annotation.tailrec
 import util.Random
 import math._
@@ -71,6 +70,6 @@ object Main extends Logging {
     }
 
     // FreeNode will only use 16 characters of a nick
-    spawn { stayConnected(List("#botwar"), "TweetStuff", oauth) }
+    stayConnected(List("#botwar"), "TweetStuff", oauth)
   }
 }

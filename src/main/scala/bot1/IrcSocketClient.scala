@@ -8,8 +8,8 @@ import java.net.SocketTimeoutException
 import grizzled.slf4j.Logging
 
 class IrcSocketClient(sock:Socket, charset:String) extends Logging {
-  val CR = 015
-  val LF = 012
+  val CR = 13
+  val LF = 10
   val MESSAGE_LIMIT = 512
 
   val oStream = sock.getOutputStream
@@ -76,7 +76,7 @@ class IrcSocketClient(sock:Socket, charset:String) extends Logging {
   // contain spaces and :'s. No parameter can include NUL, CR or LF.
 
   def command(cmd:String, middle:Seq[String], trailing:Option[String]) {
-    val message = cmd+" "+middle.mkString(" ")+trailing.map(" :"+).getOrElse("")
+    val message = cmd+" "+middle.mkString(" ")+trailing.map(" :"+_).getOrElse("")
     oStream.synchronized {
       debug("Sending: "+message)
       oStream.write(message.getBytes(charset))

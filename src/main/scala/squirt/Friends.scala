@@ -28,5 +28,5 @@ object ParseFriends {
     for {
       friends <- j -| "friends"
       fs      <- friends.array
-    } yield Friends(fs.map(_.number.map(_.toLong)).flatten)
+    } yield Friends(fs.flatMap(_.number.flatMap(_.toLong)))
 }

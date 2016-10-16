@@ -41,7 +41,7 @@ class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface with Logg
   }
 
   protected def unthrottledAction(target:String, action:String) {
-    unthrottledPrivmsg(target, "\001ACTION %s\001".format(action))
+    unthrottledPrivmsg(target, "\u0001ACTION %s\u0001".format(action))
   }
 
   def run(handle:IrcMessage => Boolean) {
@@ -83,7 +83,7 @@ class IrcClient(sockClient:IrcSocketClient) extends IrcClientInterface with Logg
 
       def logMessage(msg:IrcMessage) {
         val dupe = lastFrom == msg.serverOrNick &&
-                   lastCommand.exists(msg.commandOrResponse ==) &&
+                   lastCommand.exists(msg.commandOrResponse == _) &&
                    lastParam == msg.params.headOption
         // For clarity, don't print the 'from' field or first parameter
         // if they are unchanged AND the command is unchanged.
