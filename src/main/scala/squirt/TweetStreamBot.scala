@@ -65,7 +65,6 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
       def nextLine(iter:Iterator[String]) {
         if(iter.hasNext) {
           val line = iter.next
-          debug(line)
           val continue = Parse.decode[Message](line).map {
             case t @ Tweet(_, _, _, _, _, _) =>
               tweetCount.incrementAndGet
