@@ -31,21 +31,25 @@ case object IgnoredEvent extends Message
 final case class Hashtag(text: String)
 
 object Hashtag {
-  implicit val decode: DecodeJson[Hashtag] =
-    jdecode1L(Hashtag.apply)("text")
+  implicit val decode: DecodeJson[Hashtag] = jdecode1L(Hashtag.apply)("text")
 }
 
 
 final case class Entities(hashtags: List[Hashtag], urls: List[TwitterUrl])
 
 object Entities {
-  implicit val decode: DecodeJson[Entities] =
-    jdecode2L(Entities.apply)("hashtags", "urls")
+  implicit val decode: DecodeJson[Entities] = jdecode2L(Entities.apply)("hashtags", "urls")
 }
 
 
-final case class Tweet(text: String, id: String, user: TwitterUser, entities: Entities,
-                       retweetOf: Option[Tweet], withheldInCountries: Option[List[String]])
+final case class Tweet(text: String,
+                       id: String,
+                       user: TwitterUser,
+                       entities: Entities,
+                       retweetOf: Option[Tweet],
+                       quoteOf: Option[Tweet],
+                       fullText: Option[String],
+                       withheldInCountries: Option[List[String]])
   extends Message {
 
   def url:String = "https://twitter.com/" + user.screenName + "/status/" + id
@@ -74,25 +78,26 @@ final case class Tweet(text: String, id: String, user: TwitterUser, entities: En
         acc match { case (col,rest) => (col + s.size + 1, (col,s) :: rest) }
     )._2.reverse
 
-  def format(leftColumn:List[String], text:String):List[String] = {
+  def wrappedText: List[String] = {
+    // respect newlines in original tweet
+    splitWithIndex(fullText.getOrElse(text), '\n').flatMap {
+      case (lineIdx,line) => {
+        val words:List[Word] = splitWithIndex(line, ' ').flatMap {
+          case (wordIdx,word) => // could possibly substitute the t.co url with expanded if it was shorter
+            classify(fixEntities(word)) ::
+              entities.urls.filter( u => ((c:Int) => c > 0 && c <= word.size)(u.endIndex - (lineIdx + wordIdx)) )
+                .map( u => UrlWord("(" + UrlResolver.resolve(u.expandedUrl).getOrElse("error") + ")") )
+        }
+        wrap(words, wrapCols).map( _.map(highlight(_)) )
+      }
+    }.map(_.mkString(" "))
+  }
+
+  def format(leftColumn: List[String], wrapped: List[String]): List[String] = {
     // 1) convert string into lines. keep starting column for each line
     // 2) break lines into words. classify each word. match each word
     //    to URL entity indexes; if matched, add parenthesised hostname
     // 3) stringify each word with colour codes, then flatMap
-
-    // respect newlines in original tweet
-    val wrapped:List[String] =
-      splitWithIndex(text, '\n').flatMap {
-        case (lineIdx,line) => {
-          val words:List[Word] = splitWithIndex(line, ' ').flatMap {
-            case (wordIdx,word) => // could possibly substitute the t.co url with expanded if it was shorter
-              classify(fixEntities(word)) ::
-                entities.urls.filter( u => ((c:Int) => c > 0 && c <= word.size)(u.endIndex - (lineIdx + wordIdx)) )
-                  .map( u => UrlWord("(" + UrlResolver.resolve(u.expandedUrl).getOrElse("error") + ")") )
-          }
-          wrap(words, wrapCols).map( _.map(highlight(_)) )
-        }
-      }.map(_.mkString(" "))
 
     leftColumn.zipAll(highlightUrl(url) :: wrapped, "", "").zipWithIndex.map {
       case ((a,b),i) =>
@@ -102,14 +107,21 @@ final case class Tweet(text: String, id: String, user: TwitterUser, entities: En
   }
 
   def description:String =
-    retweetOf.fold("tweet by @"+user.screenName)(rt =>
-      "retweet of @%s by @%s".format(rt.user.screenName, user.screenName))
+    retweetOf.fold(
+      quoteOf.fold("tweet")( qt => "quote of @%s".format(qt.user.screenName))
+    )(rt => "retweet of @%s".format(rt.user.screenName)) +
+    "by @" + user.screenName
 
   def descriptionList:List[String] =
-    retweetOf.fold(List("@"+user.screenName))(rt =>
+    retweetOf.fold(
+      quoteOf.fold(List("@"+user.screenName))( qt =>
+        List("@"+qt.user.screenName,
+             " quoted by",
+             " @"+user.screenName) )
+    )( rt =>
       List("@"+rt.user.screenName,
            " retweeted by",
-           " @"+user.screenName))
+           " @"+user.screenName) )
 
   def abbreviated = {
     val textFixed = fixEntities(text)
@@ -117,14 +129,19 @@ final case class Tweet(text: String, id: String, user: TwitterUser, entities: En
     if(abbrev != textFixed) abbrev+"..." else abbrev
   }
 
-  // If it's a retweet, send full text of original tweet,
+  // If it's a retweet or quoted tweet, send full text of original tweet,
   // otherwise full text of this tweet
-  def sendTweet: List[String] =
-    format(descriptionList, retweetOf.fold(text)(_.text)) ++
-      withheldInCountries.fold[List[String]](Nil){
+  def sendTweet: List[String] = {
+    val wrapped = retweetOf.fold(
+        quoteOf.fold(wrappedText)(qt =>
+          wrappedText ++ qt.wrappedText.map("▏ " + _))
+      )(_.wrappedText)
+    format(descriptionList, wrapped) ++
+      withheldInCountries.fold[List[String]](Nil) {
         case Nil => Nil
         case cs => List("Withheld from: " + cs.mkString(", "))
       }
+  }
 }
 
 object Tweet {
@@ -140,8 +157,10 @@ object Tweet {
         u  <- (c --\ "user").as[TwitterUser]
         e  <- (c --\ "entities").as[Entities]
         rt <- (c --\ "retweeted_status").as[Option[Tweet]]
+        q  <- (c --\ "quoted_status").as[Option[Tweet]]
+        ft <- (c --\ "extended_tweet" --\ "full_text").as[Option[String]]
         w  <- (c --\ "withheld_in_countries").as[Option[List[String]]]
-      } yield Tweet(t, id, u, e, rt, w)
+      } yield Tweet(t, id, u, e, rt, q, ft, w)
     )
 }
 
