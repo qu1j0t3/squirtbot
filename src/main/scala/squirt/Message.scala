@@ -21,9 +21,17 @@ final case class Disconnect(code: Int,
 
 final case class Friends(userIds: List[Long]) extends Message
 
-final case class FavoriteEvent(source: TwitterUser, target: Tweet) extends Message
+final case class FavoriteEvent(source: TwitterUser,
+                               target: TwitterUser,
+                               targetObject: Tweet) extends Message
+
+final case class FavoriteRetweetEvent(source: TwitterUser,
+                                      target: TwitterUser,
+                                      targetObject: Tweet) extends Message
 
 final case class FollowEvent(source: TwitterUser, target: TwitterUser) extends Message
+
+final case class UnfollowEvent(source: TwitterUser, target: TwitterUser) extends Message
 
 case object IgnoredEvent extends Message
 
@@ -165,19 +173,17 @@ object Tweet {
 }
 
 
-sealed trait EventTarget
+sealed trait EventTargetObject
 
-case object NullTarget extends EventTarget
-case class TweetTarget(t: Tweet) extends EventTarget
-case class UserTarget(u: TwitterUser) extends EventTarget
+case object NullTarget extends EventTargetObject
+case class TweetTarget(t: Tweet) extends EventTargetObject
 
-object EventTarget {
-  implicit val decode: DecodeJson[EventTarget] =
-    DecodeJson(c =>
-      c.as[Unit].map[EventTarget](_ => NullTarget) |||
-      c.as[TwitterUser].map[EventTarget](UserTarget) |||
-      c.as[Tweet].map[EventTarget](TweetTarget)
-    )
+object EventTargetObject {
+  implicit val decode: DecodeJson[EventTargetObject] =
+    DecodeJson { c =>
+      c.as[Unit].map[EventTargetObject](_ => NullTarget) |||
+      c.as[Tweet].map[EventTargetObject](TweetTarget)
+    }
 }
 
 
@@ -192,10 +198,12 @@ object Message {
 
   def friends(ids: List[Long]): Message = Friends(ids)
 
-  def event(event: String, source: TwitterUser, target: EventTarget): Message =
-    (event,target) match {
-      case ("favorite",TweetTarget(t)) => FavoriteEvent(source, t)
-      case ("follow",UserTarget(u)) => FollowEvent(source, u)
+  def event(event: String, source: TwitterUser, target: TwitterUser, targetObject: EventTargetObject): Message =
+    (event,targetObject) match {
+      case ("favorite",TweetTarget(t)) => FavoriteEvent(source, target, t)
+      case ("favorited_retweet",TweetTarget(t)) => FavoriteRetweetEvent(source, target, t)
+      case ("follow",_) => FollowEvent(source, target)
+      case ("unfollow",_) => UnfollowEvent(source, target)
       case _ => IgnoredEvent
     }
 
@@ -206,6 +214,6 @@ object Message {
       (c --\ "disconnect").as(jdecode3L(disconnect)("code", "stream_name", "reason")) |||
       (c --\ "friends").as[List[Long]].map(friends) |||
       c.as[Tweet].map(t => t:Message) |||
-      c.as(jdecode3L(event)("event", "source", "target"))
+      c.as(jdecode4L(event)("event", "source", "target", "target_object"))
     )
 }

@@ -95,8 +95,14 @@ class TweetStreamBot(oauth: OAuthCredentials, cache: TweetCache) extends Bot {
               cache.getTweetById(id).foreach( t =>
                 actionAllChannels("@%s deleted '%s'".format(t.user.screenName, t.abbreviated)) )
               true
-            case FavoriteEvent(s, t) =>
-              actionAllChannels("@%s favourited '%s'".format(s.screenName, t.abbreviated))
+            case FavoriteEvent(s, targetUser, tweet) =>
+              actionAllChannels("@%s favourited '%s'".format(s.screenName, tweet.abbreviated))
+              true
+            case FavoriteRetweetEvent(s, targetUser, tweet) =>
+              actionAllChannels("@%s favourited retweet '%s'".format(s.screenName, tweet.abbreviated))
+              true
+            case UnfollowEvent(s, t) =>
+              actionAllChannels("@%s unfollowed @%s".format(s.screenName, t.screenName))
               true
             case FollowEvent(s, t) =>
               actionAllChannels("@%s followed @%s".format(s.screenName, t.screenName))
