@@ -37,12 +37,12 @@ object Main extends Logging {
                                "your access token",
                                "your access token secret")
 
-  def main(args:Array[String]) {
+  def main(args: Array[String]): Unit = {
     val cache = new TweetCache
     val CONNECT_BACKOFF_MS = 10000
 
     @tailrec
-    def stayConnected(chans:List[String], nick:String, oauth:OAuthCredentials, backoffMs:Int) {
+    def stayConnected(chans: List[String], nick: String, oauth: OAuthCredentials, backoffMs: Int) {
       val newBackoff =
         try {
           // The client is the interface to the IRC service.

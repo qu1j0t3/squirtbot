@@ -4,12 +4,12 @@ version := "0.1"
 
 scalaVersion := "2.11.8"
 
-scalacOptions ++= Seq("-deprecation", "-feature")
+scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature")
 
 fork in run := true
 
 // -Xshare:off to work around http://bugs.java.com/view_bug.do?bug_id=6497639 , http://bugs.java.com/view_bug.do?bug_id=6598065
-javaOptions in (run) ++= Seq("-Dcom.sun.management.jmxremote", "-Xmx128M", "-Xshare:off")
+//javaOptions in run ++= Seq("-Dcom.sun.management.jmxremote", "-Xmx128M", "-Xshare:off")
 
 resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
 
@@ -21,3 +21,5 @@ libraryDependencies ++= Seq(
   "ch.qos.logback" % "logback-classic" % "1.1.7",
   "org.clapper" %% "grizzled-slf4j" % "1.2.0"
 )
+
+mainClass in assembly := Some("squirt.Main")
