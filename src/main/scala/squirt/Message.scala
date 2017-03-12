@@ -65,39 +65,38 @@ final case class Tweet(text: String,
   val indentCols = 17
   val wrapCols   = 57
 
-  def highlight(word:Word) = word match {
+  def highlight(word:Word): String = word match {
     case UserMentionWord(s) => MAGENTA + s + NORMAL
     case HashTagWord(s)     => CYAN    + s + NORMAL
     case UrlWord(s)         => PURPLE  + s + NORMAL
     case PlainWord(s)       => s
   }
-  def highlightUrl(s:String)     = DARK_GREEN + s + NORMAL
-  def highlightNick(s:String)    = BOLD       + s + NORMAL
-  def highlightLeftCol(s:String) = DARK_BLUE  + s + NORMAL
+  def highlightUrl(s:String): String     = DARK_GREEN + s + NORMAL
+  def highlightNick(s:String): String    = BOLD       + s + NORMAL
+  def highlightLeftCol(s:String): String = DARK_BLUE  + s + NORMAL
 
-  def fixEntities(s:String) =
+  def fixEntities(s:String): String =
     s.replace("&lt;",  "<")
-      .replace("&gt;",  ">")
-      .replace("&amp;", "&")
+     .replace("&gt;",  ">")
+     .replace("&amp;", "&")
 
   def splitWithIndex(s:String, c:Char):List[(Int,String)] =
     s.split(c).foldLeft( (0,Nil:List[(Int,String)]) )(
       (acc, s) =>
-        acc match { case (col,rest) => (col + s.size + 1, (col,s) :: rest) }
+        acc match { case (col,rest) => (col + s.length + 1, (col,s) :: rest) }
     )._2.reverse
 
   def wrappedText: List[String] = {
     // respect newlines in original tweet
     splitWithIndex(fullText.getOrElse(text), '\n').flatMap {
-      case (lineIdx,line) => {
+      case (lineIdx,line) =>
         val words:List[Word] = splitWithIndex(line, ' ').flatMap {
           case (wordIdx,word) => // could possibly substitute the t.co url with expanded if it was shorter
             classify(fixEntities(word)) ::
-              entities.urls.filter( u => ((c:Int) => c > 0 && c <= word.size)(u.endIndex - (lineIdx + wordIdx)) )
+              entities.urls.filter( u => ((c:Int) => c > 0 && c <= word.length)(u.endIndex - (lineIdx + wordIdx)) )
                 .map( u => UrlWord("(" + UrlResolver.resolve(u.expandedUrl).getOrElse("error") + ")") )
         }
-        wrap(words, wrapCols).map( _.map(highlight(_)) )
-      }
+        wrap(words, wrapCols).map( _.map(highlight) )
     }.map(_.mkString(" "))
   }
 
@@ -110,7 +109,7 @@ final case class Tweet(text: String,
     leftColumn.zipAll(highlightUrl(url) :: wrapped, "", "").zipWithIndex.map {
       case ((a,b),i) =>
         (if(i == 0) highlightNick(a) else highlightLeftCol(a)) +
-          " "*(2 max (indentCols - a.size)) + b
+          " "*(2 max (indentCols - a.length)) + b
     } ++ List(" ")
   }
 
@@ -131,7 +130,7 @@ final case class Tweet(text: String,
            " retweeted by",
            " @"+user.screenName) )
 
-  def abbreviated = {
+  def abbreviated: String = {
     val textFixed = fixEntities(text)
     val abbrev = textFixed.split("\\s").take(8).mkString(" ")
     if(abbrev != textFixed) abbrev+"..." else abbrev
