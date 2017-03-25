@@ -14,12 +14,13 @@ fork in run := true
 resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
 
 libraryDependencies ++= Seq(
-  "org.apache.httpcomponents" % "httpclient" % "4.5.2",
-  "org.apache.httpcomponents" % "fluent-hc"  % "4.5.2",
+  "org.apache.httpcomponents" % "httpclient" % "4.5.3",
+  "org.apache.httpcomponents" % "fluent-hc"  % "4.5.3",
   "commons-collections" % "commons-collections" % "3.2.2",
   "io.argonaut" %% "argonaut" % "6.1",
-  "ch.qos.logback" % "logback-classic" % "1.1.7",
-  "org.clapper" %% "grizzled-slf4j" % "1.2.0"
+  "org.scalaz" %% "scalaz-concurrent" % "7.1.10",
+  "ch.qos.logback" % "logback-classic" % "1.2.2",
+  "org.clapper" %% "grizzled-slf4j" % "1.3.0"
 )
 
 mainClass in assembly := Some("squirt.Main")
